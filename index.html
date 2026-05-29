@@ -195,7 +195,12 @@
       return `
         <div class="overview-card ${selectedChannelId === ch.channel_id ? 'selected' : ''}"
              data-id="${ch.channel_id}" onclick="selectChannel('${ch.channel_id}')">
-          <div class="name">${ch.client_name}${badge}</div>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div class="name">${ch.client_name}${badge}</div>
+            <button onclick="event.stopPropagation();removeChannel('${ch.channel_id}','${ch.client_name}')"
+              title="Remover canal"
+              style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:.85rem;padding:0;line-height:1">✕</button>
+          </div>
           <div class="subs">${subs}</div>
           <div class="delta neutral" id="delta-${ch.channel_id}">inscritos</div>
         </div>`;
@@ -299,6 +304,22 @@
         },
       });
     });
+  }
+
+  // ── Remove channel ───────────────────────────────────────────────────────
+  async function removeChannel(channelId, name) {
+    if (!confirm(`Remover "${name}"?`)) return;
+    const resp = await fetch(
+      `/api/delete-channel?key=${encodeURIComponent(DASH_KEY)}&channel_id=${encodeURIComponent(channelId)}`,
+      { method: 'DELETE' }
+    );
+    if (!resp.ok) { alert('Erro ao remover.'); return; }
+    if (selectedChannelId === channelId) {
+      selectedChannelId = null;
+      document.getElementById('detail').style.display = 'none';
+    }
+    allChannels = allChannels.filter(c => c.channel_id !== channelId);
+    renderAll();
   }
 
   // ── Utils ─────────────────────────────────────────────────────────────────
