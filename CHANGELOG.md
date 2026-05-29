@@ -1,5 +1,66 @@
 # YouTube Tracker — Log do Projeto
 
+---
+
+## v0.3.0 — 2026-05-29 — Dashboard estilo YouTube Studio
+
+### O que foi feito
+
+**Redesign completo do dashboard:**
+- Layout com sidebar de canais + área principal
+- Seletor de datas: presets (7d / 28d / 90d / 1 ano) + date picker personalizado from/to
+- Aba **Canal**: 6 KPI cards + 4 gráficos de linha com dados **diários incrementais** (views/dia, watch time/dia, inscritos ganhos/dia, impressões/dia)
+- Aba **Vídeos**: lista com thumbnail + clique num vídeo abre detalhe com gráficos diários de views e watch time do vídeo específico
+
+**Novas tabelas D1 (migration 0004):**
+- `channel_daily` — dados diários incrementais por canal (views, watch time, inscritos +/−, impressões, CTR)
+- `video_daily` — dados diários incrementais por vídeo (views, watch time, duração média)
+
+**Novas APIs:**
+- `GET /api/channel-daily?channel_id=&from=&to=` — retorna dados diários do canal com totais do período
+- `GET /api/video-daily?video_id=&from=&to=` — retorna dados diários de um vídeo específico
+
+**Sync reescrito (`_sync.js`):**
+- `dimensions=day` na Analytics API para obter dados diários (não agregados)
+- Query separada para impressões/CTR (a API rejeita se combinada com outros metrics)
+- `dimensions=video,day` para dados diários por vídeo
+- Fallback silencioso se impressões falhar (canais sem YPP não têm acesso)
+
+**Botões no header:**
+- ↻ Sync hoje — coleta só o dia atual
+- ⬇ Histórico completo — coleta desde a criação do canal (até 3650 dias)
+
+---
+
+## v0.2.0 — 2026-05-28 — Vídeos, OAuth auto-sync, métricas corrigidas
+
+### O que foi feito
+
+**Novas tabelas D1:**
+- `videos` (migration 0002) — metadados dos vídeos públicos: título, thumbnail, duração, data de publicação
+- `video_stats` (migration 0002) — snapshot cumulativo por vídeo: views, likes, comentários, watch time, duração média
+- `channel_stats.subscribers_gained/lost` (migration 0003) — inscritos ganhos e perdidos por dia
+
+**OAuth melhorado:**
+- Ao conectar um canal, o callback dispara automaticamente coleta histórica completa em background (`waitUntil`)
+- A data de início da coleta é a data de criação do canal no YouTube
+
+**Filtro de vídeos públicos:**
+- Apenas vídeos com `privacyStatus === 'public'` são coletados e exibidos
+
+**Diagnóstico de métricas:**
+- Confirmado via endpoint `/api/debug-analytics` que impressões/CTR requerem YouTube Partner Program (YPP)
+- Impressões e CTR removidos das métricas de vídeo (exibem "N/D" para canais sem YPP)
+- Watch time, duração média, views, likes, comentários funcionam para qualquer canal
+
+**Botão de remover canal:**
+- Cada card de canal tem um ✕ que remove o canal e todos os snapshots do D1
+
+**Botão sincronizar:**
+- Endpoint `POST /api/sync?days=N` para coleta manual com controle de período
+
+---
+
 ## v0.1.0 — 2026-05-28 — Setup completo
 
 ### Infraestrutura provisionada
@@ -11,79 +72,68 @@
 | Cloudflare Worker (cron) | `youtube-tracker-cron` | https://youtube-tracker-cron.marioadsanchez.workers.dev |
 | GitHub | `marioadsanchez/youtube-tracker` | https://github.com/marioadsanchez/youtube-tracker |
 
-### O que foi feito
-
-- **D1 criado** com `wrangler d1 create youtube-tracker-db`
-- **Migration aplicada** — tabelas `channels` e `channel_stats` criadas
-- **Pages project criado** e D1 vinculado via Cloudflare API
-- **DASH_KEY configurado** no Pages (valor: `youtube-tracker-key-2026` — mude pelo painel)
-- **Cron worker deployado** com schedule `0 6 * * *` (06:00 UTC diário)
-- **GitHub repo criado** em https://github.com/marioadsanchez/youtube-tracker
-
 ### Secrets configurados
 
-| Secret | Status | Onde configurar se faltar |
-|--------|--------|--------------------------|
-| `DASH_KEY` | ✅ Configurado (`youtube-tracker-key-2026`) | Pages → Settings → Variables |
-| `GOOGLE_CLIENT_ID` | ⚠️ Pendente | Pages → Settings → Variables |
-| `GOOGLE_CLIENT_SECRET` | ⚠️ Pendente | Pages → Settings → Variables |
-| `OAUTH_REDIRECT_URI` | ⚠️ Pendente | Pages → Settings → Variables |
+| Secret | Status |
+|--------|--------|
+| `DASH_KEY` | ✅ `youtube-tracker-key-2026` (trocar por senha mais segura) |
+| `GOOGLE_CLIENT_ID` | ✅ Configurado |
+| `GOOGLE_CLIENT_SECRET` | ✅ Configurado |
+| `OAUTH_REDIRECT_URI` | ✅ `https://youtube-tracker-26i.pages.dev/auth/callback` |
+| `GOOGLE_CLIENT_ID` (cron worker) | ✅ Configurado |
+| `GOOGLE_CLIENT_SECRET` (cron worker) | ✅ Configurado |
 
-### Pendente para funcionar completamente
-
-1. **Criar credenciais OAuth Google:**
-   - Acesse https://console.cloud.google.com
-   - Crie/selecione um projeto
-   - Habilite: **YouTube Data API v3** e **YouTube Analytics API**
-   - Credenciais → Create Credentials → OAuth 2.0 Client ID → Web application
-   - Authorized redirect URI: `https://youtube-tracker-26i.pages.dev/auth/callback`
-   - Anote Client ID e Client Secret
-
-2. **Configurar os 3 secrets restantes** no Cloudflare Pages Dashboard:
-   - `GOOGLE_CLIENT_ID` = seu Client ID
-   - `GOOGLE_CLIENT_SECRET` = seu Client Secret
-   - `OAUTH_REDIRECT_URI` = `https://youtube-tracker-26i.pages.dev/auth/callback`
-
-3. **Também no Cron Worker** (Workers → youtube-tracker-cron → Settings → Variables):
-   - `GOOGLE_CLIENT_ID`
-   - `GOOGLE_CLIENT_SECRET`
-
-4. **Conectar o primeiro canal:**
-   - Abra: `https://youtube-tracker-26i.pages.dev/auth/connect?key=youtube-tracker-key-2026&client=Anthony`
-   - Faça login com a conta Google do canal
-   - Pronto — aparece no dashboard
-
-5. **Trocar a DASH_KEY** para uma senha mais segura em:
-   - Pages → Settings → Environment Variables → DASH_KEY
-
-### Arquitetura final
+### Arquitetura
 
 ```
 Browser
   │
-  ├── GET https://youtube-tracker-26i.pages.dev?key=...
-  │     └── index.html → dashboard com Chart.js
-  │
-  ├── GET /api/channels?key=...   → functions/api/channels.js → D1
-  ├── GET /api/stats?key=...      → functions/api/stats.js    → D1
-  ├── GET /auth/connect?key=...   → functions/auth/connect.js → Google OAuth
-  └── GET /auth/callback          → functions/auth/callback.js → D1 (salva token)
+  ├── https://youtube-tracker-26i.pages.dev?key=...   → index.html (Chart.js)
+  ├── GET  /api/channels?key=...                       → D1 channels
+  ├── GET  /api/channel-daily?key=...                  → D1 channel_daily
+  ├── GET  /api/videos?key=...                         → D1 videos + video_stats
+  ├── GET  /api/video-daily?key=...                    → D1 video_daily
+  ├── POST /api/sync?key=...&days=N                    → coleta manual
+  ├── DEL  /api/delete-channel?key=...                 → remove canal + dados
+  ├── GET  /auth/connect?key=...&client=nome           → redirect OAuth Google
+  └── GET  /auth/callback                              → salva token + sync histórico
 
-Cron (06:00 UTC)
+Cron (06:00 UTC diário)
   └── youtube-tracker-cron Worker
-        └── channels com refresh_token → YouTube Data API + Analytics API → D1
+        ├── YouTube Data API v3    → subscribers, views, videos, comments (cumulativo)
+        ├── YouTube Analytics API  → views/dia, watch time/dia, inscritos +/−/dia (incremental)
+        └── YouTube Analytics API  → impressões/CTR/dia (só canais com YPP)
+```
+
+### Schema D1 completo
+
+```
+channels         — canal + OAuth tokens (refresh_token, access_token, token_expiry)
+channel_stats    — snapshot cumulativo diário do canal
+channel_daily    — dados diários incrementais do canal (Analytics API)
+videos           — metadados dos vídeos públicos
+video_stats      — snapshot cumulativo do vídeo (total de views/likes/comentários)
+video_daily      — dados diários incrementais por vídeo (Analytics API)
 ```
 
 ---
 
-## Próximas versões planejadas
+## Limitações conhecidas
 
-### v0.2.0
-- Conectar Google Cloud Console + configurar OAuth
-- Primeiro canal conectado e coletando dados
-- Validar dashboard com dados reais
+| Métrica | Status | Motivo |
+|---------|--------|--------|
+| Impressões | Só canais com YPP | YouTube restringe na Analytics API |
+| CTR (Taxa de cliques) | Só canais com YPP | Idem |
+| Views por vídeo (histórico diário) | ✅ Funciona | `dimensions=video,day` |
+| Watch time por vídeo | ✅ Funciona | `estimatedMinutesWatched` |
+| Inscritos ganhos/perdidos | ✅ Funciona | `subscribersGained/Lost` |
 
-### v1.0.0
-- Múltiplos clientes ativos
-- 7+ dias de histórico coletado
-- Todos os 6 gráficos funcionando (incluindo CTR e impressões)
+---
+
+## Próximos passos sugeridos
+
+- [ ] Trocar `DASH_KEY` para senha mais forte
+- [ ] Conectar canais dos clientes via `/auth/connect`
+- [ ] Clicar "⬇ Histórico completo" após conectar cada canal
+- [ ] Avaliar se adicionar comparação entre períodos (ex: esta semana vs semana anterior)
+- [ ] Avaliar se adicionar alerta de queda de views (notificação por email/WhatsApp)
