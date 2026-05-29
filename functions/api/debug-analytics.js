@@ -22,21 +22,28 @@ export async function onRequestGet(context) {
     const today    = new Date().toISOString().slice(0, 10);
     const from30   = new Date(Date.now() - 30 * 86400 * 1000).toISOString().slice(0, 10);
 
-    // Teste 1: channel-level analytics (sem dimensions)
+    // Teste 1: watch time channel-level
     const r1 = await fetch(
-      `https://youtubeanalytics.googleapis.com/v2/reports?ids=channel==MINE&startDate=${from30}&endDate=${today}&metrics=views,impressions,impressionClickThroughRate`,
+      `https://youtubeanalytics.googleapis.com/v2/reports?ids=channel==MINE&startDate=${from30}&endDate=${today}&metrics=estimatedMinutesWatched,averageViewDuration`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
-    const channelAnalytics = { status: r1.status, body: await r1.json().catch(() => r1.text()) };
+    const watchTimeChannel = { status: r1.status, body: await r1.json().catch(() => r1.text()) };
 
-    // Teste 2: per-video analytics com dimensions=video
+    // Teste 2: watch time per-video
     const r2 = await fetch(
-      `https://youtubeanalytics.googleapis.com/v2/reports?ids=channel==MINE&startDate=${from30}&endDate=${today}&dimensions=video&metrics=views,impressions,impressionClickThroughRate&maxResults=5&sort=-views`,
+      `https://youtubeanalytics.googleapis.com/v2/reports?ids=channel==MINE&startDate=${from30}&endDate=${today}&dimensions=video&metrics=views,estimatedMinutesWatched,averageViewDuration&maxResults=5&sort=-views`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
-    const videoAnalytics = { status: r2.status, body: await r2.json().catch(() => r2.text()) };
+    const watchTimeVideo = { status: r2.status, body: await r2.json().catch(() => r2.text()) };
 
-    return json({ channelAnalytics, videoAnalytics });
+    // Teste 3: subscribers gained/lost
+    const r3 = await fetch(
+      `https://youtubeanalytics.googleapis.com/v2/reports?ids=channel==MINE&startDate=${from30}&endDate=${today}&metrics=subscribersGained,subscribersLost`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const subscribers = { status: r3.status, body: await r3.json().catch(() => r3.text()) };
+
+    return json({ watchTimeChannel, watchTimeVideo, subscribers });
   } catch (e) {
     return json({ error: e.message }, 500);
   }

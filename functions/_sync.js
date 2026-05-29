@@ -36,21 +36,24 @@ async function syncChannelStats(channel, accessToken, dateFrom, dateTo, env) {
     await env.DB.prepare(`
       INSERT INTO channel_stats (
         channel_id, date, subscribers, total_views, video_count, comment_count,
-        impressions, ctr, watch_time_hours
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        impressions, ctr, watch_time_hours, subscribers_gained, subscribers_lost
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(channel_id, date) DO UPDATE SET
-        subscribers      = excluded.subscribers,
-        total_views      = excluded.total_views,
-        video_count      = excluded.video_count,
-        comment_count    = excluded.comment_count,
-        impressions      = excluded.impressions,
-        ctr              = excluded.ctr,
-        watch_time_hours = excluded.watch_time_hours,
-        snapshot_at      = unixepoch()
+        subscribers        = excluded.subscribers,
+        total_views        = excluded.total_views,
+        video_count        = excluded.video_count,
+        comment_count      = excluded.comment_count,
+        impressions        = excluded.impressions,
+        ctr                = excluded.ctr,
+        watch_time_hours   = excluded.watch_time_hours,
+        subscribers_gained = excluded.subscribers_gained,
+        subscribers_lost   = excluded.subscribers_lost,
+        snapshot_at        = unixepoch()
     `).bind(
       channel.channel_id, date,
       dataStats.subscribers, dataStats.total_views, dataStats.video_count, dataStats.comment_count,
-      analyticsRow.impressions, analyticsRow.ctr, analyticsRow.watch_time_hours
+      analyticsRow.impressions, analyticsRow.ctr, analyticsRow.watch_time_hours,
+      analyticsRow.subscribers_gained, analyticsRow.subscribers_lost
     ).run();
   }
 }
@@ -76,20 +79,22 @@ async function fetchChannelAnalytics(accessToken, startDate, endDate) {
     const resp = await fetch(
       `https://youtubeanalytics.googleapis.com/v2/reports` +
       `?ids=channel==MINE&startDate=${startDate}&endDate=${endDate}` +
-      `&metrics=estimatedMinutesWatched,averageViewDuration`,
+      `&metrics=estimatedMinutesWatched,averageViewDuration,subscribersGained,subscribersLost`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
-    if (!resp.ok) return { impressions: 0, ctr: 0, watch_time_hours: 0 };
+    if (!resp.ok) return { impressions: 0, ctr: 0, watch_time_hours: 0, subscribers_gained: 0, subscribers_lost: 0 };
     const json = await resp.json();
     const row  = json.rows?.[0];
-    if (!row) return { impressions: 0, ctr: 0, watch_time_hours: 0 };
+    if (!row) return { impressions: 0, ctr: 0, watch_time_hours: 0, subscribers_gained: 0, subscribers_lost: 0 };
     return {
-      impressions:      0,
-      ctr:              0,
-      watch_time_hours: parseFloat((row[0] || 0) / 60),
+      impressions:        0,
+      ctr:                0,
+      watch_time_hours:   parseFloat((row[0] || 0) / 60),
+      subscribers_gained: parseInt(row[2] || 0, 10),
+      subscribers_lost:   parseInt(row[3] || 0, 10),
     };
   } catch (_) {
-    return { impressions: 0, ctr: 0, watch_time_hours: 0 };
+    return { impressions: 0, ctr: 0, watch_time_hours: 0, subscribers_gained: 0, subscribers_lost: 0 };
   }
 }
 
@@ -193,14 +198,15 @@ async function upsertVideoMetadata(accessToken, videoIds, channelId, env) {
 }
 
 async function syncVideoAnalytics(accessToken, channelId, startDate, endDate, env) {
-  // Analytics API com dimensions=video retorna métricas agregadas no período por vídeo
+  const today = ymd(new Date());
   let pageToken = '';
+
   do {
     const url = `https://youtubeanalytics.googleapis.com/v2/reports` +
       `?ids=channel==MINE` +
       `&startDate=${startDate}&endDate=${endDate}` +
       `&dimensions=video` +
-      `&metrics=views,likes,comments,estimatedMinutesWatched,averageViewDuration` +
+      `&metrics=views,estimatedMinutesWatched,averageViewDuration` +
       `&maxResults=200` +
       `&sort=-views` +
       (pageToken ? `&pageToken=${pageToken}` : '');
@@ -211,30 +217,27 @@ async function syncVideoAnalytics(accessToken, channelId, startDate, endDate, en
       break;
     }
     const json = await resp.json();
+    const rows = json.rows || [];
 
-    const rows  = json.rows || [];
-    const today = ymd(new Date());
+    // Só atualiza vídeos que já existem na tabela videos (para não violar FK)
+    const existingIds = new Set(
+      (await env.DB.prepare(`SELECT video_id FROM videos WHERE channel_id = ?`).bind(channelId).all())
+        .results.map(r => r.video_id)
+    );
 
-    const stmts = rows.map(row => {
-      const [videoId, views, likes, comments, watchMin, avgDurSec] = row;
-      return env.DB.prepare(`
-        INSERT INTO video_stats (
-          video_id, channel_id, date,
-          views, likes, comments,
-          avg_view_duration_sec, watch_time_minutes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(video_id, date) DO UPDATE SET
-          views                 = excluded.views,
-          likes                 = excluded.likes,
-          comments              = excluded.comments,
-          avg_view_duration_sec = excluded.avg_view_duration_sec,
-          watch_time_minutes    = excluded.watch_time_minutes
-      `).bind(
-        videoId, channelId, today,
-        parseInt(views || 0), parseInt(likes || 0), parseInt(comments || 0),
-        parseInt(avgDurSec || 0), parseInt(watchMin || 0)
-      );
-    });
+    const stmts = rows
+      .filter(row => existingIds.has(row[0]))
+      .map(row => {
+        const [videoId, views, watchMin, avgDurSec] = row;
+        return env.DB.prepare(`
+          INSERT INTO video_stats (video_id, channel_id, date, views, watch_time_minutes, avg_view_duration_sec)
+          VALUES (?, ?, ?, ?, ?, ?)
+          ON CONFLICT(video_id, date) DO UPDATE SET
+            views                 = excluded.views,
+            watch_time_minutes    = excluded.watch_time_minutes,
+            avg_view_duration_sec = excluded.avg_view_duration_sec
+        `).bind(videoId, channelId, today, parseInt(views || 0), parseInt(watchMin || 0), parseInt(avgDurSec || 0));
+      });
 
     if (stmts.length) await env.DB.batch(stmts);
     pageToken = json.nextPageToken || '';
