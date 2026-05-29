@@ -99,6 +99,7 @@
     <button class="period-btn" data-days="30">30d</button>
     <button class="period-btn" data-days="90">90d</button>
     <span id="last-updated" style="font-size:.75rem;color:var(--dim);margin-left:auto"></span>
+    <button id="sync-btn" class="connect-btn" style="border-color:var(--blue);color:var(--blue)">↻ Sincronizar</button>
   </header>
 
   <main>
@@ -149,6 +150,28 @@
     allChannels = data.channels || [];
     renderAll();
   }
+
+  // ── Sync button ──────────────────────────────────────────────────────────
+  qs('sync-btn').addEventListener('click', async () => {
+    const btn = qs('sync-btn');
+    btn.textContent = '↻ Sincronizando...';
+    btn.disabled = true;
+    try {
+      const resp = await fetch(`/api/sync?key=${encodeURIComponent(DASH_KEY)}`, { method: 'POST' });
+      const data = await resp.json();
+      btn.textContent = `✓ ${data.synced} canal(is) sincronizado(s)`;
+      // Reload channels and detail
+      const ch = await fetch(`/api/channels?key=${encodeURIComponent(DASH_KEY)}`);
+      const chData = await ch.json();
+      allChannels = chData.channels || [];
+      renderAll();
+      if (selectedChannelId) loadDetail(selectedChannelId);
+    } catch (e) {
+      btn.textContent = '✗ Erro';
+    } finally {
+      setTimeout(() => { btn.textContent = '↻ Sincronizar'; btn.disabled = false; }, 3000);
+    }
+  });
 
   // ── Connect button ────────────────────────────────────────────────────────
   qs('connect-btn').addEventListener('click', () => {
