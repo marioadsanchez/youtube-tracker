@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YouTube Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f172a;
+      --surface:   #1e293b;
+      --border:    #334155;
+      --text:      #e2e8f0;
+      --muted:     #94a3b8;
+      --dim:       #64748b;
+      --red:       #f87171;
+      --green:     #4ade80;
+      --blue:      #60a5fa;
+      --yellow:    #fbbf24;
+      --purple:    #a78bfa;
+      --cyan:      #22d3ee;
+    }
+
+    body { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, sans-serif; min-height: 100vh; }
+
+    /* Auth gate */
+    #auth-gate { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    #auth-gate .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+                       padding: 2.5rem; width: 320px; text-align: center; }
+    #auth-gate h2 { margin-bottom: 1.25rem; font-size: 1.25rem; }
+    #auth-gate input { width: 100%; background: rgba(255,255,255,.05); border: 1px solid var(--border);
+                       color: var(--text); border-radius: 8px; padding: .6rem 1rem; font-size: .95rem;
+                       margin-bottom: .75rem; outline: none; }
+    #auth-gate button { width: 100%; background: var(--blue); color: #0f172a; border: none;
+                        border-radius: 8px; padding: .7rem; font-weight: 700; cursor: pointer; font-size: .95rem; }
+    #auth-error { color: var(--red); font-size: .85rem; margin-top: .5rem; min-height: 1.2rem; }
+
+    /* Main layout */
+    #app { display: none; }
+    header { background: var(--surface); border-bottom: 1px solid var(--border);
+             padding: .9rem 1.5rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+    header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; }
+    .period-btn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 6px;
+                  padding: .35rem .75rem; cursor: pointer; font-size: .8rem; }
+    .period-btn.active { background: var(--blue); border-color: var(--blue); color: #0f172a; font-weight: 700; }
+    .connect-btn { background: none; border: 1px solid var(--green); color: var(--green); border-radius: 6px;
+                   padding: .35rem .75rem; cursor: pointer; font-size: .8rem; text-decoration: none; }
+
+    main { max-width: 1280px; margin: 0 auto; padding: 1.5rem; }
+
+    /* Overview cards */
+    .overview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: .75rem; margin-bottom: 2rem; }
+    .overview-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+                     padding: 1rem 1.25rem; cursor: pointer; transition: border-color .15s; }
+    .overview-card:hover, .overview-card.selected { border-color: var(--blue); }
+    .overview-card .name { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: .4rem; }
+    .overview-card .subs { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .overview-card .delta { font-size: .8rem; margin-top: .25rem; }
+    .delta.up { color: var(--green); }
+    .delta.down { color: var(--red); }
+    .delta.neutral { color: var(--muted); }
+    .badge-connected { font-size: .65rem; color: var(--green); margin-left: .4rem; }
+    .badge-pending   { font-size: .65rem; color: var(--yellow); margin-left: .4rem; }
+
+    /* Detail section */
+    #detail { display: none; }
+    #detail h2 { font-size: 1rem; font-weight: 700; margin-bottom: 1rem; color: var(--muted); }
+    #detail h2 span { color: var(--text); }
+
+    .charts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1rem; }
+    .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; }
+    .chart-card .chart-title { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: .25rem; }
+    .chart-card .chart-value { font-size: 1.4rem; font-weight: 700; margin-bottom: .75rem; font-variant-numeric: tabular-nums; }
+    .chart-card canvas { max-height: 140px; }
+
+    .no-data { color: var(--dim); font-size: .9rem; text-align: center; padding: 3rem; }
+
+    /* Connect panel */
+    #connect-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+                     padding: 1.5rem; margin-bottom: 2rem; }
+    #connect-panel h3 { font-size: .9rem; margin-bottom: 1rem; color: var(--muted); }
+    .connect-grid { display: flex; flex-wrap: wrap; gap: .5rem; }
+    .connect-item { display: flex; align-items: center; gap: .5rem; background: rgba(255,255,255,.04);
+                    border: 1px solid var(--border); border-radius: 8px; padding: .5rem .9rem; font-size: .85rem; }
+    .connect-item a { color: var(--green); text-decoration: none; font-size: .75rem; margin-left: .25rem; }
+    .connect-item a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<!-- Auth Gate -->
+<div id="auth-gate">
+  <div class="card">
+    <h2>🎬 YouTube Tracker</h2>
+    <input id="key-input" type="password" placeholder="Dashboard key" autocomplete="off" />
+    <button id="key-btn">Entrar</button>
+    <div id="auth-error"></div>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app">
+  <header>
+    <h1>🎬 YouTube Tracker</h1>
+    <button class="period-btn active" data-days="7">7d</button>
+    <button class="period-btn" data-days="30">30d</button>
+    <button class="period-btn" data-days="90">90d</button>
+    <span id="last-updated" style="font-size:.75rem;color:var(--dim);margin-left:auto"></span>
+  </header>
+
+  <main>
+    <!-- Connect panel -->
+    <div id="connect-panel">
+      <h3>Canais — clique "Conectar" para autorizar via OAuth Google</h3>
+      <div class="connect-grid" id="connect-grid">Carregando...</div>
+    </div>
+
+    <!-- Overview -->
+    <div class="overview-grid" id="overview-grid"></div>
+
+    <!-- Detail -->
+    <div id="detail">
+      <h2>Detalhe: <span id="detail-name"></span></h2>
+      <div class="charts-grid" id="charts-grid"></div>
+    </div>
+  </main>
+</div>
+
+<script>
+  // ── Auth ──────────────────────────────────────────────────────────────────
+  let DASH_KEY = '';
+  let activeDays = 7;
+  let selectedChannelId = null;
+  let allChannels = [];
+
+  const qs = id => document.getElementById(id);
+
+  qs('key-btn').addEventListener('click', tryLogin);
+  qs('key-input').addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
+
+  async function tryLogin() {
+    const key = qs('key-input').value.trim();
+    if (!key) return;
+    const resp = await fetch(`/api/channels?key=${encodeURIComponent(key)}`);
+    if (resp.status === 401) { qs('auth-error').textContent = 'Chave inválida.'; return; }
+    DASH_KEY = key;
+    qs('auth-gate').style.display = 'none';
+    qs('app').style.display = 'block';
+    const data = await resp.json();
+    allChannels = data.channels || [];
+    renderAll();
+  }
+
+  // ── Period buttons ────────────────────────────────────────────────────────
+  document.querySelectorAll('.period-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeDays = parseInt(btn.dataset.days);
+      if (selectedChannelId) loadDetail(selectedChannelId);
+    });
+  });
+
+  // ── Render overview + connect panel ──────────────────────────────────────
+  function renderAll() {
+    renderConnectPanel();
+    renderOverview();
+    qs('last-updated').textContent = `Atualizado: ${new Date().toLocaleTimeString('pt-BR')}`;
+  }
+
+  function renderConnectPanel() {
+    const grid = qs('connect-grid');
+    if (!allChannels.length) {
+      grid.innerHTML = '<span style="color:var(--dim);font-size:.85rem">Nenhum cliente em config/clients.js</span>';
+      return;
+    }
+    grid.innerHTML = allChannels.map(ch => {
+      const connected = ch.oauth_connected;
+      const badge = connected
+        ? '<span style="color:var(--green);font-size:.75rem">✅ Conectado</span>'
+        : '<span style="color:var(--yellow);font-size:.75rem">⚠️ Não conectado</span>';
+      const link = !connected
+        ? `<a href="/auth/connect?key=${encodeURIComponent(DASH_KEY)}&client=${encodeURIComponent(ch.client_name)}" target="_blank">Conectar →</a>`
+        : `<a href="/auth/connect?key=${encodeURIComponent(DASH_KEY)}&client=${encodeURIComponent(ch.client_name)}" target="_blank" style="color:var(--dim)">Reconectar</a>`;
+      return `<div class="connect-item">${ch.client_name} ${badge} ${link}</div>`;
+    }).join('');
+  }
+
+  function renderOverview() {
+    const grid = qs('overview-grid');
+    if (!allChannels.length) {
+      grid.innerHTML = '<p class="no-data">Nenhum canal cadastrado ainda.</p>';
+      return;
+    }
+    grid.innerHTML = allChannels.map(ch => {
+      const subs  = ch.last_subscribers != null ? fmtNum(ch.last_subscribers) : '—';
+      const badge = ch.oauth_connected
+        ? '<span class="badge-connected">●</span>'
+        : '<span class="badge-pending">○</span>';
+      return `
+        <div class="overview-card ${selectedChannelId === ch.channel_id ? 'selected' : ''}"
+             data-id="${ch.channel_id}" onclick="selectChannel('${ch.channel_id}')">
+          <div class="name">${ch.client_name}${badge}</div>
+          <div class="subs">${subs}</div>
+          <div class="delta neutral" id="delta-${ch.channel_id}">inscritos</div>
+        </div>`;
+    }).join('');
+
+    // Carregar deltas assincronamente
+    allChannels.forEach(ch => {
+      if (ch.channel_id && !ch.channel_id.startsWith('pending_')) {
+        loadDelta(ch.channel_id);
+      }
+    });
+  }
+
+  async function loadDelta(channelId) {
+    try {
+      const resp = await fetch(`/api/stats?key=${encodeURIComponent(DASH_KEY)}&channel_id=${channelId}&days=${activeDays}`);
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const el = document.getElementById(`delta-${channelId}`);
+      if (!el || !data.delta) return;
+      const d = data.delta.subscribers;
+      el.textContent = (d >= 0 ? '+' : '') + fmtNum(d) + ` (${activeDays}d)`;
+      el.className = `delta ${d > 0 ? 'up' : d < 0 ? 'down' : 'neutral'}`;
+    } catch (_) {}
+  }
+
+  // ── Detail ────────────────────────────────────────────────────────────────
+  function selectChannel(channelId) {
+    selectedChannelId = channelId;
+    document.querySelectorAll('.overview-card').forEach(c => {
+      c.classList.toggle('selected', c.dataset.id === channelId);
+    });
+    loadDetail(channelId);
+  }
+
+  const chartInstances = {};
+
+  async function loadDetail(channelId) {
+    const resp = await fetch(`/api/stats?key=${encodeURIComponent(DASH_KEY)}&channel_id=${channelId}&days=${activeDays}`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+
+    qs('detail').style.display = 'block';
+    qs('detail-name').textContent = `${data.client_name} (${data.handle || channelId})`;
+
+    const rows  = data.rows || [];
+    const labels = rows.map(r => r.date.slice(5)); // MM-DD
+
+    const metrics = [
+      { key: 'subscribers',   label: 'Inscritos',      color: '#60a5fa' },
+      { key: 'total_views',   label: 'Views Totais',   color: '#22d3ee' },
+      { key: 'video_count',   label: 'Vídeos',         color: '#a78bfa' },
+      { key: 'comment_count', label: 'Comentários',    color: '#fbbf24' },
+      { key: 'impressions',   label: 'Impressões',     color: '#4ade80' },
+      { key: 'ctr',           label: 'CTR (%)',        color: '#f87171', format: v => v.toFixed(2) + '%' },
+    ];
+
+    const grid = qs('charts-grid');
+    grid.innerHTML = metrics.map(m => `
+      <div class="chart-card">
+        <div class="chart-title">${m.label}</div>
+        <div class="chart-value" id="cv-${m.key}">—</div>
+        <canvas id="chart-${m.key}"></canvas>
+      </div>`).join('');
+
+    metrics.forEach(m => {
+      const values  = rows.map(r => r[m.key] || 0);
+      const current = values[values.length - 1] ?? null;
+      const fmt     = m.format || fmtNum;
+      const cvEl    = document.getElementById(`cv-${m.key}`);
+      if (cvEl) cvEl.textContent = current != null ? fmt(current) : '—';
+
+      const ctx = document.getElementById(`chart-${m.key}`)?.getContext('2d');
+      if (!ctx) return;
+
+      if (chartInstances[m.key]) chartInstances[m.key].destroy();
+
+      chartInstances[m.key] = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            data: values,
+            borderColor: m.color,
+            backgroundColor: m.color + '18',
+            borderWidth: 2,
+            pointRadius: rows.length <= 14 ? 3 : 0,
+            fill: true,
+            tension: 0.3,
+          }],
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false }, tooltip: {
+            callbacks: { label: ctx => fmt(ctx.parsed.y) },
+          }},
+          scales: {
+            x: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#1e293b' } },
+            y: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#334155' } },
+          },
+        },
+      });
+    });
+  }
+
+  // ── Utils ─────────────────────────────────────────────────────────────────
+  function fmtNum(n) {
+    if (n == null) return '—';
+    if (Math.abs(n) >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+    if (Math.abs(n) >= 1_000)     return (n / 1_000).toFixed(1) + 'K';
+    return String(n);
+  }
+</script>
+</body>
+</html>
