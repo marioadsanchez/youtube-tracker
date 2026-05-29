@@ -76,7 +76,7 @@ async function fetchChannelAnalytics(accessToken, startDate, endDate) {
     const resp = await fetch(
       `https://youtubeanalytics.googleapis.com/v2/reports` +
       `?ids=channel==MINE&startDate=${startDate}&endDate=${endDate}` +
-      `&metrics=impressions,impressionClickThroughRate,estimatedMinutesWatched`,
+      `&metrics=estimatedMinutesWatched,averageViewDuration`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
     if (!resp.ok) return { impressions: 0, ctr: 0, watch_time_hours: 0 };
@@ -84,9 +84,9 @@ async function fetchChannelAnalytics(accessToken, startDate, endDate) {
     const row  = json.rows?.[0];
     if (!row) return { impressions: 0, ctr: 0, watch_time_hours: 0 };
     return {
-      impressions:      parseInt(row[0] || 0, 10),
-      ctr:              parseFloat(row[1] || 0),
-      watch_time_hours: parseFloat((row[2] || 0) / 60),
+      impressions:      0,
+      ctr:              0,
+      watch_time_hours: parseFloat((row[0] || 0) / 60),
     };
   } catch (_) {
     return { impressions: 0, ctr: 0, watch_time_hours: 0 };
@@ -200,7 +200,7 @@ async function syncVideoAnalytics(accessToken, channelId, startDate, endDate, en
       `?ids=channel==MINE` +
       `&startDate=${startDate}&endDate=${endDate}` +
       `&dimensions=video` +
-      `&metrics=views,likes,comments,impressions,impressionClickThroughRate,estimatedMinutesWatched,averageViewDuration` +
+      `&metrics=views,likes,comments,estimatedMinutesWatched,averageViewDuration` +
       `&maxResults=200` +
       `&sort=-views` +
       (pageToken ? `&pageToken=${pageToken}` : '');
@@ -216,25 +216,22 @@ async function syncVideoAnalytics(accessToken, channelId, startDate, endDate, en
     const today = ymd(new Date());
 
     const stmts = rows.map(row => {
-      const [videoId, views, likes, comments, impressions, ctr, watchMin, avgDurSec] = row;
+      const [videoId, views, likes, comments, watchMin, avgDurSec] = row;
       return env.DB.prepare(`
         INSERT INTO video_stats (
           video_id, channel_id, date,
-          views, likes, comments, impressions, ctr,
+          views, likes, comments,
           avg_view_duration_sec, watch_time_minutes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(video_id, date) DO UPDATE SET
           views                 = excluded.views,
           likes                 = excluded.likes,
           comments              = excluded.comments,
-          impressions           = excluded.impressions,
-          ctr                   = excluded.ctr,
           avg_view_duration_sec = excluded.avg_view_duration_sec,
           watch_time_minutes    = excluded.watch_time_minutes
       `).bind(
         videoId, channelId, today,
         parseInt(views || 0), parseInt(likes || 0), parseInt(comments || 0),
-        parseInt(impressions || 0), parseFloat(ctr || 0),
         parseInt(avgDurSec || 0), parseInt(watchMin || 0)
       );
     });

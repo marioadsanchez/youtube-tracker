@@ -368,11 +368,10 @@
             <div class="vid-date">${date}</div>
             <div class="vid-metrics">
               <div class="vid-metric"><span class="vm-label">Views</span><span class="vm-val blue">${fmtNum(v.views)}</span></div>
-              <div class="vid-metric"><span class="vm-label">Impressões</span><span class="vm-val">${fmtNum(v.impressions)}</span></div>
-              <div class="vid-metric"><span class="vm-label">CTR</span><span class="vm-val yellow">${v.ctr ? v.ctr.toFixed(1) + '%' : '—'}</span></div>
               <div class="vid-metric"><span class="vm-label">Likes</span><span class="vm-val green">${fmtNum(v.likes)}</span></div>
               <div class="vid-metric"><span class="vm-label">Comentários</span><span class="vm-val">${fmtNum(v.comments)}</span></div>
               <div class="vid-metric"><span class="vm-label">Dur. média</span><span class="vm-val cyan">${fmtDuration(v.avg_view_duration_sec)}</span></div>
+              <div class="vid-metric"><span class="vm-label">Watch time</span><span class="vm-val yellow">${v.watch_time_minutes ? fmtNum(v.watch_time_minutes) + ' min' : '—'}</span></div>
             </div>
           </div>
         </div>`;
