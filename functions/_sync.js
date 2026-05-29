@@ -152,13 +152,22 @@ async function upsertVideoMetadata(accessToken, videoIds, channelId, env) {
   );
   if (!resp.ok) return;
   const json = await resp.json();
+  const today = ymd(new Date());
 
-  const stmts = (json.items || []).map(v => {
+  const metaStmts  = [];
+  const statsStmts = [];
+
+  for (const v of json.items || []) {
     const thumb = v.snippet?.thumbnails?.medium?.url
                || v.snippet?.thumbnails?.default?.url
                || '';
     const durationSec = iso8601DurationToSeconds(v.contentDetails?.duration || '');
-    return env.DB.prepare(`
+    const views    = parseInt(v.statistics?.viewCount    || '0', 10);
+    const likes    = parseInt(v.statistics?.likeCount    || '0', 10);
+    const comments = parseInt(v.statistics?.commentCount || '0', 10);
+
+    // Metadados do vídeo
+    metaStmts.push(env.DB.prepare(`
       INSERT INTO videos (video_id, channel_id, title, thumbnail_url, published_at, duration_sec)
       VALUES (?, ?, ?, ?, ?, ?)
       ON CONFLICT(video_id) DO UPDATE SET
@@ -166,16 +175,21 @@ async function upsertVideoMetadata(accessToken, videoIds, channelId, env) {
         thumbnail_url = excluded.thumbnail_url,
         duration_sec  = excluded.duration_sec,
         updated_at    = unixepoch()
-    `).bind(
-      v.id, channelId,
-      v.snippet?.title || '',
-      thumb,
-      v.snippet?.publishedAt || '',
-      durationSec
-    );
-  });
+    `).bind(v.id, channelId, v.snippet?.title || '', thumb, v.snippet?.publishedAt || '', durationSec));
 
-  if (stmts.length) await env.DB.batch(stmts);
+    // Métricas básicas da Data API (views, likes, comentários) — sempre disponíveis
+    statsStmts.push(env.DB.prepare(`
+      INSERT INTO video_stats (video_id, channel_id, date, views, likes, comments)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(video_id, date) DO UPDATE SET
+        views    = excluded.views,
+        likes    = excluded.likes,
+        comments = excluded.comments
+    `).bind(v.id, channelId, today, views, likes, comments));
+  }
+
+  if (metaStmts.length)  await env.DB.batch(metaStmts);
+  if (statsStmts.length) await env.DB.batch(statsStmts);
 }
 
 async function syncVideoAnalytics(accessToken, channelId, startDate, endDate, env) {
@@ -192,7 +206,10 @@ async function syncVideoAnalytics(accessToken, channelId, startDate, endDate, en
       (pageToken ? `&pageToken=${pageToken}` : '');
 
     const resp = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
-    if (!resp.ok) break;
+    if (!resp.ok) {
+      console.warn(`[sync] Analytics API (video) ${resp.status}:`, await resp.text().catch(() => ''));
+      break;
+    }
     const json = await resp.json();
 
     const rows  = json.rows || [];
