@@ -77,15 +77,6 @@
 
     .no-data { color: var(--dim); font-size: .9rem; text-align: center; padding: 3rem; }
 
-    /* Connect panel */
-    #connect-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-                     padding: 1.5rem; margin-bottom: 2rem; }
-    #connect-panel h3 { font-size: .9rem; margin-bottom: 1rem; color: var(--muted); }
-    .connect-grid { display: flex; flex-wrap: wrap; gap: .5rem; }
-    .connect-item { display: flex; align-items: center; gap: .5rem; background: rgba(255,255,255,.04);
-                    border: 1px solid var(--border); border-radius: 8px; padding: .5rem .9rem; font-size: .85rem; }
-    .connect-item a { color: var(--green); text-decoration: none; font-size: .75rem; margin-left: .25rem; }
-    .connect-item a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -111,10 +102,16 @@
   </header>
 
   <main>
-    <!-- Connect panel -->
-    <div id="connect-panel">
-      <h3>Canais — clique "Conectar" para autorizar via OAuth Google</h3>
-      <div class="connect-grid" id="connect-grid">Carregando...</div>
+    <!-- Connect new channel -->
+    <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:1.5rem;flex-wrap:wrap">
+      <input id="new-client-name" type="text" placeholder="Nome do cliente / canal"
+        style="background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--text);
+               border-radius:8px;padding:.5rem .9rem;font-size:.9rem;outline:none;width:220px" />
+      <button id="connect-btn"
+        style="background:none;border:1px solid var(--green);color:var(--green);border-radius:8px;
+               padding:.5rem 1rem;cursor:pointer;font-size:.85rem;font-weight:600">
+        + Conectar canal
+      </button>
     </div>
 
     <!-- Overview -->
@@ -153,6 +150,21 @@
     renderAll();
   }
 
+  // ── Connect button ────────────────────────────────────────────────────────
+  qs('connect-btn').addEventListener('click', () => {
+    const name = qs('new-client-name').value.trim();
+    if (!name) { qs('new-client-name').focus(); return; }
+    const url = `/auth/connect?key=${encodeURIComponent(DASH_KEY)}&client=${encodeURIComponent(name)}`;
+    window.open(url, '_blank');
+    // Reload channels after 5s to pick up newly connected channel
+    setTimeout(async () => {
+      const resp = await fetch(`/api/channels?key=${encodeURIComponent(DASH_KEY)}`);
+      const data = await resp.json();
+      allChannels = data.channels || [];
+      renderAll();
+    }, 5000);
+  });
+
   // ── Period buttons ────────────────────────────────────────────────────────
   document.querySelectorAll('.period-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -165,27 +177,8 @@
 
   // ── Render overview + connect panel ──────────────────────────────────────
   function renderAll() {
-    renderConnectPanel();
     renderOverview();
     qs('last-updated').textContent = `Atualizado: ${new Date().toLocaleTimeString('pt-BR')}`;
-  }
-
-  function renderConnectPanel() {
-    const grid = qs('connect-grid');
-    if (!allChannels.length) {
-      grid.innerHTML = '<span style="color:var(--dim);font-size:.85rem">Nenhum cliente em config/clients.js</span>';
-      return;
-    }
-    grid.innerHTML = allChannels.map(ch => {
-      const connected = ch.oauth_connected;
-      const badge = connected
-        ? '<span style="color:var(--green);font-size:.75rem">✅ Conectado</span>'
-        : '<span style="color:var(--yellow);font-size:.75rem">⚠️ Não conectado</span>';
-      const link = !connected
-        ? `<a href="/auth/connect?key=${encodeURIComponent(DASH_KEY)}&client=${encodeURIComponent(ch.client_name)}" target="_blank">Conectar →</a>`
-        : `<a href="/auth/connect?key=${encodeURIComponent(DASH_KEY)}&client=${encodeURIComponent(ch.client_name)}" target="_blank" style="color:var(--dim)">Reconectar</a>`;
-      return `<div class="connect-item">${ch.client_name} ${badge} ${link}</div>`;
-    }).join('');
   }
 
   function renderOverview() {

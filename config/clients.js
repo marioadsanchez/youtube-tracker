@@ -1,7 +1,4 @@
-// Lista de clientes — adicione aqui e faça deploy para registrar novos canais.
-// channel_id é opcional: se omitido, será detectado automaticamente via OAuth.
+// Clientes são conectados diretamente pelo dashboard via OAuth.
+// Este arquivo pode ser deixado vazio.
+export default [];
 
-export default [
-  { name: 'Anthony', handle: '@anthonycreator' },
-  // { name: 'Cliente B', handle: '@clienteb' },
-];
