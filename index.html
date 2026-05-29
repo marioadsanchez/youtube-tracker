@@ -8,91 +8,120 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg: #0f172a; --surface: #1e293b; --border: #334155;
+      --bg: #0f172a; --surface: #1e293b; --surface2: #162032; --border: #2d3f55;
       --text: #e2e8f0; --muted: #94a3b8; --dim: #64748b;
       --red: #f87171; --green: #4ade80; --blue: #60a5fa;
-      --yellow: #fbbf24; --purple: #a78bfa; --cyan: #22d3ee;
+      --yellow: #fbbf24; --purple: #a78bfa; --cyan: #22d3ee; --orange: #fb923c;
     }
     body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; min-height: 100vh; }
 
-    /* Auth */
+    /* ── Auth ── */
     #auth-gate { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
     .auth-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 2.5rem; width: 320px; text-align: center; }
     .auth-card h2 { margin-bottom: 1.25rem; font-size: 1.25rem; }
-    .auth-card input { width: 100%; background: rgba(255,255,255,.05); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: .6rem 1rem; font-size: .95rem; margin-bottom: .75rem; outline: none; }
-    .auth-card button { width: 100%; background: var(--blue); color: #0f172a; border: none; border-radius: 8px; padding: .7rem; font-weight: 700; cursor: pointer; font-size: .95rem; }
-    #auth-error { color: var(--red); font-size: .85rem; margin-top: .5rem; min-height: 1.2rem; }
+    .auth-card input { width: 100%; background: rgba(255,255,255,.06); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: .6rem 1rem; font-size: .95rem; margin-bottom: .75rem; outline: none; }
+    .auth-card button { width: 100%; background: var(--blue); color: #0f172a; border: none; border-radius: 8px; padding: .7rem; font-weight: 700; cursor: pointer; }
+    #auth-error { color: var(--red); font-size: .82rem; margin-top: .5rem; min-height: 1.1rem; }
 
-    /* App */
+    /* ── App shell ── */
     #app { display: none; }
-    header { background: var(--surface); border-bottom: 1px solid var(--border); padding: .85rem 1.5rem; display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
-    header h1 { font-size: 1.05rem; font-weight: 700; flex: 1; min-width: 120px; }
-    .hbtn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: .3rem .7rem; cursor: pointer; font-size: .78rem; }
-    .hbtn.active { background: var(--blue); border-color: var(--blue); color: #0f172a; font-weight: 700; }
-    .hbtn.green { border-color: var(--green); color: var(--green); }
-    .hbtn.blue  { border-color: var(--blue);  color: var(--blue);  }
-    #last-updated { font-size: .72rem; color: var(--dim); margin-left: auto; }
+    header { background: var(--surface); border-bottom: 1px solid var(--border); padding: .8rem 1.5rem; display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
+    header h1 { font-size: 1rem; font-weight: 700; }
+    .spacer { flex: 1; }
+    .btn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: .3rem .75rem; cursor: pointer; font-size: .78rem; white-space: nowrap; }
+    .btn:hover { border-color: var(--muted); color: var(--text); }
+    .btn.green { border-color: var(--green); color: var(--green); }
+    .btn.blue  { border-color: var(--blue);  color: var(--blue);  }
+    .btn.red   { border-color: var(--red);   color: var(--red);   }
 
-    main { max-width: 1400px; margin: 0 auto; padding: 1.25rem 1.5rem; }
+    /* ── Layout ── */
+    .layout { display: grid; grid-template-columns: 260px 1fr; min-height: calc(100vh - 49px); }
 
-    /* Connect bar */
-    .connect-bar { display: flex; align-items: center; gap: .6rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
-    .connect-bar input { background: rgba(255,255,255,.05); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: .45rem .9rem; font-size: .88rem; outline: none; width: 210px; }
+    /* ── Sidebar ── */
+    aside { background: var(--surface2); border-right: 1px solid var(--border); padding: 1rem; overflow-y: auto; }
+    .sidebar-title { font-size: .68rem; color: var(--dim); text-transform: uppercase; letter-spacing: .08em; margin-bottom: .6rem; padding: 0 .25rem; }
+    .channel-card { border: 1px solid var(--border); border-radius: 10px; padding: .75rem; margin-bottom: .5rem; cursor: pointer; transition: border-color .15s, background .15s; }
+    .channel-card:hover { background: rgba(255,255,255,.03); border-color: var(--muted); }
+    .channel-card.active { border-color: var(--blue); background: rgba(96,165,250,.07); }
+    .cc-name { font-size: .82rem; font-weight: 600; display: flex; align-items: center; gap: .4rem; justify-content: space-between; }
+    .cc-subs { font-size: 1.1rem; font-weight: 700; margin-top: .25rem; font-variant-numeric: tabular-nums; }
+    .cc-delta { font-size: .72rem; margin-top: .1rem; }
+    .dot-on { color: var(--green); font-size: .55rem; }
+    .dot-off { color: var(--yellow); font-size: .55rem; }
+    .rm-btn { background: none; border: none; color: var(--dim); cursor: pointer; font-size: .8rem; padding: 0; flex-shrink: 0; }
+    .rm-btn:hover { color: var(--red); }
 
-    /* Overview */
-    .overview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: .75rem; margin-bottom: 1.75rem; }
-    .ov-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.1rem; cursor: pointer; transition: border-color .15s; }
-    .ov-card:hover, .ov-card.sel { border-color: var(--blue); }
-    .ov-card .cname { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: .35rem; display: flex; justify-content: space-between; }
-    .ov-card .csubs { font-size: 1.45rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-    .ov-card .cdelta { font-size: .78rem; margin-top: .2rem; }
-    .up { color: var(--green); } .down { color: var(--red); } .neutral { color: var(--muted); }
-    .dot-on  { color: var(--green); font-size: .6rem; }
-    .dot-off { color: var(--yellow); font-size: .6rem; }
-    .rm-btn { background: none; border: none; color: var(--dim); cursor: pointer; font-size: .85rem; padding: 0; }
+    .connect-box { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+    .connect-box input { width: 100%; background: rgba(255,255,255,.05); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: .45rem .75rem; font-size: .82rem; outline: none; margin-bottom: .5rem; }
+    .connect-box button { width: 100%; }
 
-    /* Tabs */
-    #detail { display: none; }
-    .tabs { display: flex; gap: .5rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); padding-bottom: .75rem; }
-    .tab-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: .85rem; padding: .35rem .75rem; border-radius: 6px; }
-    .tab-btn.active { background: var(--surface); color: var(--text); font-weight: 700; border: 1px solid var(--border); }
+    /* ── Main content ── */
+    .main-content { overflow-y: auto; padding: 1.5rem; }
+
+    /* ── Date picker bar ── */
+    .datebar { display: flex; align-items: center; gap: .6rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .datebar input[type=date] { background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: .35rem .75rem; font-size: .82rem; outline: none; cursor: pointer; }
+    .datebar input[type=date]::-webkit-calendar-picker-indicator { filter: invert(0.6); cursor: pointer; }
+    .preset-btn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: .3rem .65rem; cursor: pointer; font-size: .75rem; }
+    .preset-btn.active, .preset-btn:hover { border-color: var(--blue); color: var(--blue); }
+
+    /* ── KPI summary cards ── */
+    .kpi-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: .75rem; margin-bottom: 1.5rem; }
+    .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: .9rem 1.1rem; }
+    .kpi-label { font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: .3rem; }
+    .kpi-val { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+    .kpi-sub  { font-size: .72rem; color: var(--dim); margin-top: .2rem; }
+    .up   { color: var(--green); }
+    .down { color: var(--red); }
+
+    /* ── Charts ── */
+    .chart-section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; }
+    .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+    .chart-title { font-size: .82rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+    .chart-total { font-size: 1.1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .charts-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+    @media (max-width: 900px) { .charts-2col { grid-template-columns: 1fr; } }
+    canvas { max-height: 180px; }
+
+    /* ── Tabs ── */
+    .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; }
+    .tab-btn { background: none; border: none; border-bottom: 2px solid transparent; color: var(--muted); cursor: pointer; font-size: .85rem; padding: .6rem 1rem; margin-bottom: -1px; }
+    .tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); font-weight: 600; }
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
 
-    /* Channel charts */
-    .charts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
-    .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.2rem; }
-    .cc-title { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: .2rem; }
-    .cc-value { font-size: 1.35rem; font-weight: 700; margin-bottom: .65rem; font-variant-numeric: tabular-nums; }
-    .chart-card canvas { max-height: 130px; }
-
-    /* Videos table */
+    /* ── Videos list ── */
     .vid-controls { display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem; flex-wrap: wrap; }
-    .vid-controls select { background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: .35rem .7rem; font-size: .82rem; outline: none; cursor: pointer; }
-    .vid-grid { display: grid; gap: .75rem; }
-    .vid-row { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; display: grid; grid-template-columns: 160px 1fr; gap: 0; overflow: hidden; transition: border-color .15s; }
+    .vid-controls select { background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: .3rem .65rem; font-size: .8rem; outline: none; cursor: pointer; }
+    .vid-list { display: grid; gap: .6rem; }
+    .vid-row { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; display: grid; grid-template-columns: 168px 1fr; overflow: hidden; cursor: pointer; transition: border-color .15s; }
     .vid-row:hover { border-color: var(--blue); }
+    .vid-row.vid-active { border-color: var(--blue); background: rgba(96,165,250,.05); }
     .vid-thumb { position: relative; }
-    .vid-thumb img { width: 160px; height: 90px; object-fit: cover; display: block; }
-    .vid-duration { position: absolute; bottom: 4px; right: 4px; background: rgba(0,0,0,.8); color: #fff; font-size: .65rem; padding: 1px 5px; border-radius: 3px; font-variant-numeric: tabular-nums; }
-    .vid-info { padding: .75rem 1rem; display: flex; flex-direction: column; gap: .4rem; }
-    .vid-title { font-size: .88rem; font-weight: 600; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    .vid-date { font-size: .72rem; color: var(--dim); }
-    .vid-metrics { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; margin-top: auto; }
-    .vid-metric { font-size: .78rem; display: flex; flex-direction: column; gap: .1rem; }
-    .vid-metric .vm-label { color: var(--dim); font-size: .65rem; text-transform: uppercase; }
-    .vid-metric .vm-val { font-weight: 700; font-variant-numeric: tabular-nums; }
-    .vid-metric .vm-val.blue   { color: var(--blue); }
-    .vid-metric .vm-val.green  { color: var(--green); }
-    .vid-metric .vm-val.yellow { color: var(--yellow); }
-    .vid-metric .vm-val.cyan   { color: var(--cyan); }
+    .vid-thumb img { width: 168px; height: 94px; object-fit: cover; display: block; }
+    .vid-dur { position: absolute; bottom: 4px; right: 4px; background: rgba(0,0,0,.85); color: #fff; font-size: .62rem; padding: 1px 5px; border-radius: 3px; font-variant-numeric: tabular-nums; }
+    .vid-info { padding: .7rem 1rem; display: flex; flex-direction: column; }
+    .vid-title { font-size: .85rem; font-weight: 600; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: .3rem; }
+    .vid-date  { font-size: .7rem; color: var(--dim); margin-bottom: .4rem; }
+    .vid-metrics { display: flex; flex-wrap: wrap; gap: .4rem 1.1rem; margin-top: auto; }
+    .vm { display: flex; flex-direction: column; }
+    .vm-l { font-size: .62rem; color: var(--dim); text-transform: uppercase; }
+    .vm-v { font-size: .8rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 
-    .no-data { color: var(--dim); font-size: .9rem; text-align: center; padding: 3rem; }
+    /* ── Video detail panel ── */
+    #vid-detail { display: none; margin-top: 1.5rem; }
+    .vid-detail-header { display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1.25rem; }
+    .vid-detail-header img { width: 200px; height: 112px; object-fit: cover; border-radius: 8px; flex-shrink: 0; }
+    .vid-detail-title { font-size: 1rem; font-weight: 700; line-height: 1.4; margin-bottom: .25rem; }
+    .vid-detail-sub { font-size: .78rem; color: var(--dim); }
+
+    .no-data { color: var(--dim); font-size: .88rem; text-align: center; padding: 2.5rem; }
+    .loading  { color: var(--dim); font-size: .82rem; text-align: center; padding: 1.5rem; }
   </style>
 </head>
 <body>
 
-<!-- Auth Gate -->
+<!-- Auth -->
 <div id="auth-gate">
   <div class="auth-card">
     <h2>🎬 YouTube Tracker</h2>
@@ -106,59 +135,142 @@
 <div id="app">
   <header>
     <h1>🎬 YouTube Tracker</h1>
-    <button class="hbtn active" data-days="7" type="button">7d</button>
-    <button class="hbtn" data-days="30" type="button">30d</button>
-    <button class="hbtn" data-days="90" type="button">90d</button>
-    <button class="hbtn" data-days="365" type="button">1a</button>
-    <span id="last-updated"></span>
-    <button id="sync-btn" class="hbtn blue" type="button">↻ Sincronizar hoje</button>
-    <button id="sync-all-btn" class="hbtn green" type="button">⬇ Histórico completo</button>
+    <div class="spacer"></div>
+    <button id="sync-btn"     class="btn blue"  type="button">↻ Sync hoje</button>
+    <button id="sync-all-btn" class="btn green" type="button">⬇ Histórico completo</button>
   </header>
 
-  <main>
-    <!-- Connect bar -->
-    <div class="connect-bar">
-      <input id="new-client-name" type="text" placeholder="Nome do cliente" />
-      <button id="connect-btn" class="hbtn green" type="button">+ Conectar canal</button>
-    </div>
+  <div class="layout">
+    <!-- Sidebar: canal list -->
+    <aside>
+      <div class="sidebar-title">Canais</div>
+      <div id="channel-list"></div>
+      <div class="connect-box">
+        <input id="new-client-name" type="text" placeholder="Nome do cliente" />
+        <button id="connect-btn" class="btn green" type="button" style="width:100%">+ Conectar canal</button>
+      </div>
+    </aside>
 
-    <!-- Overview -->
-    <div class="overview-grid" id="overview-grid"></div>
-
-    <!-- Detail -->
-    <div id="detail">
-      <div class="tabs">
-        <button class="tab-btn active" data-tab="channel" type="button">📊 Canal</button>
-        <button class="tab-btn" data-tab="videos" type="button">🎬 Vídeos</button>
+    <!-- Main -->
+    <div class="main-content">
+      <div id="empty-state" class="no-data" style="padding:4rem">
+        Selecione um canal no painel esquerdo
       </div>
 
-      <!-- Tab: Canal -->
-      <div class="tab-panel active" id="tab-channel">
-        <div class="charts-grid" id="charts-grid"></div>
-      </div>
-
-      <!-- Tab: Vídeos -->
-      <div class="tab-panel" id="tab-videos">
-        <div class="vid-controls">
-          <span style="font-size:.82rem;color:var(--muted)">Ordenar por:</span>
-          <select id="vid-sort">
-            <option value="views">Views</option>
-            <option value="impressions">Impressões</option>
-            <option value="ctr">CTR</option>
-            <option value="likes">Likes</option>
-            <option value="comments">Comentários</option>
-          </select>
-          <span id="vid-count" style="font-size:.78rem;color:var(--dim)"></span>
+      <div id="detail-area" style="display:none">
+        <!-- Date bar -->
+        <div class="datebar">
+          <button class="preset-btn" data-preset="7"   type="button">7 dias</button>
+          <button class="preset-btn active" data-preset="28" type="button">28 dias</button>
+          <button class="preset-btn" data-preset="90"  type="button">90 dias</button>
+          <button class="preset-btn" data-preset="365" type="button">1 ano</button>
+          <span style="color:var(--dim);font-size:.8rem">ou</span>
+          <input type="date" id="date-from" />
+          <span style="color:var(--dim);font-size:.8rem">→</span>
+          <input type="date" id="date-to" />
+          <button id="apply-dates" class="btn blue" type="button">Aplicar</button>
         </div>
-        <div class="vid-grid" id="vid-grid"></div>
-      </div>
-    </div>
-  </main>
+
+        <!-- Tabs -->
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="channel" type="button">📊 Canal</button>
+          <button class="tab-btn" data-tab="videos" type="button">🎬 Vídeos</button>
+        </div>
+
+        <!-- Tab: Canal -->
+        <div class="tab-panel active" id="tab-channel">
+          <!-- KPI row -->
+          <div class="kpi-row" id="kpi-row"></div>
+
+          <!-- Charts 2x2 -->
+          <div class="charts-2col">
+            <div class="chart-section">
+              <div class="chart-header">
+                <span class="chart-title">👁 Visualizações / dia</span>
+                <span class="chart-total" id="ct-views" style="color:var(--blue)">—</span>
+              </div>
+              <canvas id="ch-views"></canvas>
+            </div>
+            <div class="chart-section">
+              <div class="chart-header">
+                <span class="chart-title">⏱ Watch time (min) / dia</span>
+                <span class="chart-total" id="ct-watch" style="color:var(--cyan)">—</span>
+              </div>
+              <canvas id="ch-watch"></canvas>
+            </div>
+          </div>
+          <div class="charts-2col">
+            <div class="chart-section">
+              <div class="chart-header">
+                <span class="chart-title">👤 Inscritos ganhos / dia</span>
+                <span class="chart-total" id="ct-subs" style="color:var(--green)">—</span>
+              </div>
+              <canvas id="ch-subs"></canvas>
+            </div>
+            <div class="chart-section">
+              <div class="chart-header">
+                <span class="chart-title">📣 Impressões / dia</span>
+                <span class="chart-total" id="ct-imp" style="color:var(--purple)">—</span>
+              </div>
+              <canvas id="ch-imp"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Vídeos -->
+        <div class="tab-panel" id="tab-videos">
+          <div class="vid-controls">
+            <span style="font-size:.8rem;color:var(--muted)">Ordenar por:</span>
+            <select id="vid-sort">
+              <option value="views">Views</option>
+              <option value="likes">Likes</option>
+              <option value="comments">Comentários</option>
+              <option value="watch_time_minutes">Watch time</option>
+            </select>
+            <span id="vid-count" style="font-size:.75rem;color:var(--dim)"></span>
+          </div>
+          <div class="vid-list" id="vid-list"><p class="loading">Selecione o período e clique em um vídeo</p></div>
+
+          <!-- Video detail -->
+          <div id="vid-detail">
+            <div class="vid-detail-header" id="vid-detail-header"></div>
+            <div class="kpi-row" id="vid-kpi-row"></div>
+            <div class="charts-2col">
+              <div class="chart-section">
+                <div class="chart-header">
+                  <span class="chart-title">👁 Views / dia</span>
+                  <span class="chart-total" id="vct-views" style="color:var(--blue)">—</span>
+                </div>
+                <canvas id="vc-views"></canvas>
+              </div>
+              <div class="chart-section">
+                <div class="chart-header">
+                  <span class="chart-title">⏱ Watch time (min) / dia</span>
+                  <span class="chart-total" id="vct-watch" style="color:var(--cyan)">—</span>
+                </div>
+                <canvas id="vc-watch"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div><!-- /detail-area -->
+    </div><!-- /main-content -->
+  </div><!-- /layout -->
 </div>
 
 <script>
-  let DASH_KEY = '', activeDays = 7, selectedChannelId = null, allChannels = [];
-  const qs = id => document.getElementById(id);
+  // ── State ─────────────────────────────────────────────────────────────────
+  let DASH_KEY = '';
+  let allChannels    = [];
+  let selectedCh     = null;
+  let selectedVid    = null;
+  let dateFrom       = daysAgo(27);
+  let dateTo         = today();
+  const charts       = {};
+
+  const qs  = id  => document.getElementById(id);
+  const enc = s   => encodeURIComponent(s);
+  const api = url => fetch(url).then(r => r.json());
 
   // ── Auth ──────────────────────────────────────────────────────────────────
   qs('key-btn').addEventListener('click', tryLogin);
@@ -173,17 +285,35 @@
     qs('auth-gate').style.display = 'none';
     qs('app').style.display = 'block';
     allChannels = (await resp.json()).channels || [];
-    renderAll();
+    initDates();
+    renderSidebar();
   }
 
-  // ── Period buttons ────────────────────────────────────────────────────────
-  document.querySelectorAll('.hbtn[data-days]').forEach(btn => {
+  // ── Date bar ──────────────────────────────────────────────────────────────
+  function initDates() {
+    qs('date-from').value = dateFrom;
+    qs('date-to').value   = dateTo;
+  }
+
+  document.querySelectorAll('.preset-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.hbtn[data-days]').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      activeDays = parseInt(btn.dataset.days);
-      if (selectedChannelId) { loadDetail(selectedChannelId); loadVideos(selectedChannelId); }
+      const d = parseInt(btn.dataset.preset);
+      dateFrom = daysAgo(d - 1);
+      dateTo   = today();
+      qs('date-from').value = dateFrom;
+      qs('date-to').value   = dateTo;
+      if (selectedCh) loadChannelData();
     });
+  });
+
+  qs('apply-dates').addEventListener('click', () => {
+    dateFrom = qs('date-from').value;
+    dateTo   = qs('date-to').value;
+    if (!dateFrom || !dateTo) return;
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    if (selectedCh) loadChannelData();
   });
 
   // ── Tabs ──────────────────────────────────────────────────────────────────
@@ -193,217 +323,253 @@
       document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
       btn.classList.add('active');
       qs(`tab-${btn.dataset.tab}`).classList.add('active');
-      if (btn.dataset.tab === 'videos' && selectedChannelId) loadVideos(selectedChannelId);
+      if (btn.dataset.tab === 'videos' && selectedCh) loadVideos();
     });
   });
 
   // ── Sync buttons ──────────────────────────────────────────────────────────
   qs('sync-btn').addEventListener('click', () => doSync(1));
   qs('sync-all-btn').addEventListener('click', () => {
-    if (confirm('Coletar histórico completo de todos os canais? Pode demorar alguns minutos.')) doSync(3650);
+    if (confirm('Coletar histórico completo? Pode demorar alguns minutos.')) doSync(3650);
   });
 
   async function doSync(days) {
-    const btn = days === 1 ? qs('sync-btn') : qs('sync-all-btn');
+    const btn  = days === 1 ? qs('sync-btn') : qs('sync-all-btn');
     const orig = btn.textContent;
-    btn.textContent = '⏳ Aguarde...';
-    btn.disabled = true;
+    btn.textContent = '⏳...'; btn.disabled = true;
     try {
-      const resp = await fetch(`/api/sync?key=${enc(DASH_KEY)}&days=${days}`, { method: 'POST' });
-      const data = await resp.json();
-      btn.textContent = `✓ ${data.synced} canal(is)`;
-      const ch = await fetch(`/api/channels?key=${enc(DASH_KEY)}`);
-      allChannels = (await ch.json()).channels || [];
-      renderAll();
-      if (selectedChannelId) { loadDetail(selectedChannelId); loadVideos(selectedChannelId); }
-    } catch (_) { btn.textContent = '✗ Erro'; }
-    finally { setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 3000); }
+      const d = await api(`/api/sync?key=${enc(DASH_KEY)}&days=${days}`, { method: 'POST' });
+      await fetch(`/api/sync?key=${enc(DASH_KEY)}&days=${days}`, { method: 'POST' });
+      allChannels = (await api(`/api/channels?key=${enc(DASH_KEY)}`)).channels || [];
+      renderSidebar();
+      if (selectedCh) loadChannelData();
+      btn.textContent = `✓ OK`;
+    } catch (_) { btn.textContent = '✗'; }
+    finally { setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500); }
   }
 
-  // ── Connect button ────────────────────────────────────────────────────────
+  // ── Connect ───────────────────────────────────────────────────────────────
   qs('connect-btn').addEventListener('click', () => {
     const name = qs('new-client-name').value.trim();
     if (!name) { qs('new-client-name').focus(); return; }
     window.open(`/auth/connect?key=${enc(DASH_KEY)}&client=${enc(name)}`, '_blank');
     setTimeout(async () => {
-      allChannels = (await (await fetch(`/api/channels?key=${enc(DASH_KEY)}`)).json()).channels || [];
-      renderAll();
+      allChannels = (await api(`/api/channels?key=${enc(DASH_KEY)}`)).channels || [];
+      renderSidebar();
     }, 5000);
   });
 
-  // ── Sort videos ───────────────────────────────────────────────────────────
-  qs('vid-sort').addEventListener('change', () => { if (selectedChannelId) loadVideos(selectedChannelId); });
+  // ── Sort ──────────────────────────────────────────────────────────────────
+  qs('vid-sort').addEventListener('change', () => { if (selectedCh) loadVideos(); });
 
-  // ── Render overview ───────────────────────────────────────────────────────
-  function renderAll() {
-    const grid = qs('overview-grid');
+  // ── Sidebar ───────────────────────────────────────────────────────────────
+  function renderSidebar() {
+    const list = qs('channel-list');
     if (!allChannels.length) {
-      grid.innerHTML = '<p class="no-data">Nenhum canal conectado. Use "+ Conectar canal" acima.</p>';
-      qs('last-updated').textContent = '';
+      list.innerHTML = '<p style="font-size:.78rem;color:var(--dim);padding:.25rem">Nenhum canal conectado</p>';
       return;
     }
-    grid.innerHTML = allChannels.map(ch => `
-      <div class="ov-card ${selectedChannelId === ch.channel_id ? 'sel' : ''}"
-           data-id="${ch.channel_id}" onclick="selectChannel('${ch.channel_id}')">
-        <div class="cname">
-          <span>${ch.client_name} <span class="${ch.oauth_connected ? 'dot-on' : 'dot-off'}">●</span></span>
-          <button class="rm-btn" type="button" onclick="event.stopPropagation();removeChannel('${ch.channel_id}','${ch.client_name}')">✕</button>
+    list.innerHTML = allChannels.map(ch => `
+      <div class="channel-card ${selectedCh?.channel_id === ch.channel_id ? 'active' : ''}"
+           onclick="selectChannel('${ch.channel_id}')">
+        <div class="cc-name">
+          <span>${escHtml(ch.client_name)} <span class="${ch.oauth_connected ? 'dot-on' : 'dot-off'}">●</span></span>
+          <button class="rm-btn" type="button" onclick="event.stopPropagation();removeChannel('${ch.channel_id}','${escHtml(ch.client_name)}')">✕</button>
         </div>
-        <div class="csubs">${ch.last_subscribers != null ? fmtNum(ch.last_subscribers) : '—'}</div>
-        <div class="cdelta neutral" id="delta-${ch.channel_id}">inscritos</div>
+        <div class="cc-subs">${ch.last_subscribers != null ? fmtNum(ch.last_subscribers) : '—'}</div>
+        <div class="cc-delta ${getDeltaClass(ch.last_subscribers, 0)}" id="sidebar-delta-${ch.channel_id}">inscritos</div>
       </div>`).join('');
-
-    allChannels.forEach(ch => { if (ch.channel_id && !ch.channel_id.startsWith('pending_')) loadDelta(ch.channel_id); });
-    qs('last-updated').textContent = `Atualizado: ${new Date().toLocaleTimeString('pt-BR')}`;
   }
 
-  async function loadDelta(channelId) {
-    try {
-      const data = await (await fetch(`/api/stats?key=${enc(DASH_KEY)}&channel_id=${channelId}&days=${activeDays}`)).json();
-      const el = qs(`delta-${channelId}`);
-      if (!el || !data.delta) return;
-      const d = data.delta.subscribers;
-      el.textContent = (d >= 0 ? '+' : '') + fmtNum(d) + ` (${activeDays}d)`;
-      el.className = `cdelta ${d > 0 ? 'up' : d < 0 ? 'down' : 'neutral'}`;
-    } catch (_) {}
-  }
+  function getDeltaClass(v, ref) { return v > ref ? 'up' : v < ref ? 'down' : ''; }
 
   // ── Select channel ────────────────────────────────────────────────────────
   function selectChannel(channelId) {
-    selectedChannelId = channelId;
-    document.querySelectorAll('.ov-card').forEach(c => c.classList.toggle('sel', c.dataset.id === channelId));
-    qs('detail').style.display = 'block';
-    loadDetail(channelId);
-    // Load videos only if videos tab is active
-    if (qs('tab-videos').classList.contains('active')) loadVideos(channelId);
+    selectedCh  = allChannels.find(c => c.channel_id === channelId);
+    selectedVid = null;
+    qs('vid-detail').style.display = 'none';
+    document.querySelectorAll('.channel-card').forEach(c =>
+      c.classList.toggle('active', c.onclick?.toString().includes(channelId))
+    );
+    renderSidebar();
+    qs('empty-state').style.display  = 'none';
+    qs('detail-area').style.display  = 'block';
+    loadChannelData();
   }
 
-  // ── Channel charts ────────────────────────────────────────────────────────
-  const chartInstances = {};
+  // ── Channel data ──────────────────────────────────────────────────────────
+  async function loadChannelData() {
+    if (!selectedCh) return;
+    const cid = selectedCh.channel_id;
 
-  async function loadDetail(channelId) {
-    const resp = await fetch(`/api/stats?key=${enc(DASH_KEY)}&channel_id=${channelId}&days=${activeDays}`);
-    if (!resp.ok) return;
-    const data = await resp.json();
-    const ch = allChannels.find(c => c.channel_id === channelId);
-    document.querySelectorAll('.tab-btn[data-tab="channel"]').forEach(b => {
-      b.textContent = `📊 ${data.client_name || 'Canal'}`;
-    });
+    const data = await api(`/api/channel-daily?key=${enc(DASH_KEY)}&channel_id=${enc(cid)}&from=${dateFrom}&to=${dateTo}`);
+    const rows = data.rows || [];
+    const tot  = data.totals || {};
 
-    const rows   = data.rows || [];
-    const labels = rows.map(r => r.date.slice(5));
-    const metrics = [
-      { key: 'subscribers',   label: 'Inscritos',    color: '#60a5fa' },
-      { key: 'total_views',   label: 'Views Totais', color: '#22d3ee' },
-      { key: 'video_count',   label: 'Vídeos',       color: '#a78bfa' },
-      { key: 'comment_count', label: 'Comentários',  color: '#fbbf24' },
-      { key: 'impressions',   label: 'Impressões',   color: '#4ade80' },
-      { key: 'ctr',           label: 'CTR (%)',      color: '#f87171', fmt: v => v.toFixed(2) + '%' },
-    ];
-
-    const grid = qs('charts-grid');
-    grid.innerHTML = metrics.map(m => `
-      <div class="chart-card">
-        <div class="cc-title">${m.label}</div>
-        <div class="cc-value" id="cv-${m.key}">—</div>
-        <canvas id="chart-${m.key}"></canvas>
+    // KPI cards
+    const hasImp = tot.impressions > 0;
+    qs('kpi-row').innerHTML = [
+      { label: 'Views',          val: fmtNum(tot.views),              color: 'var(--blue)',   sub: 'no período' },
+      { label: 'Watch time',     val: fmtHours(tot.watch_time_minutes), color: 'var(--cyan)', sub: 'horas' },
+      { label: 'Inscritos +',    val: '+' + fmtNum(tot.subscribers_gained), color: 'var(--green)', sub: 'ganhos' },
+      { label: 'Inscritos −',    val: '−' + fmtNum(tot.subscribers_lost),   color: 'var(--red)',   sub: 'perdidos' },
+      { label: 'Impressões',     val: hasImp ? fmtNum(tot.impressions) : 'N/D', color: 'var(--purple)', sub: hasImp ? 'no período' : 'requer YPP' },
+      { label: 'CTR médio',      val: tot.avg_ctr > 0 ? tot.avg_ctr.toFixed(1) + '%' : 'N/D', color: 'var(--yellow)', sub: '' },
+    ].map(k => `
+      <div class="kpi-card">
+        <div class="kpi-label">${k.label}</div>
+        <div class="kpi-val" style="color:${k.color}">${k.val}</div>
+        <div class="kpi-sub">${k.sub}</div>
       </div>`).join('');
 
-    metrics.forEach(m => {
-      const vals    = rows.map(r => r[m.key] || 0);
-      const current = vals[vals.length - 1] ?? null;
-      const fmt     = m.fmt || fmtNum;
-      const cvEl    = qs(`cv-${m.key}`);
-      if (cvEl) cvEl.textContent = current != null ? fmt(current) : '—';
+    const labels = rows.map(r => r.date.slice(5));
+    drawLine('ch-views', 'ct-views', labels, rows.map(r => r.views || 0),              '#60a5fa', fmtNum);
+    drawLine('ch-watch', 'ct-watch', labels, rows.map(r => r.watch_time_minutes || 0), '#22d3ee', v => fmtNum(v) + ' min');
+    drawLine('ch-subs',  'ct-subs',  labels, rows.map(r => r.subscribers_gained || 0), '#4ade80', fmtNum);
+    drawLine('ch-imp',   'ct-imp',   labels, rows.map(r => r.impressions || 0),        '#a78bfa', fmtNum);
 
-      const ctx = qs(`chart-${m.key}`)?.getContext('2d');
-      if (!ctx) return;
-      if (chartInstances[m.key]) chartInstances[m.key].destroy();
-      chartInstances[m.key] = new Chart(ctx, {
-        type: 'line',
-        data: { labels, datasets: [{ data: vals, borderColor: m.color, backgroundColor: m.color + '18',
-          borderWidth: 2, pointRadius: rows.length <= 14 ? 3 : 0, fill: true, tension: 0.3 }] },
-        options: {
-          responsive: true,
-          plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmt(c.parsed.y) } } },
-          scales: {
-            x: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#1e293b' } },
-            y: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#334155' } },
-          },
-        },
-      });
-    });
+    // Also update sidebar deltas
+    allChannels = (await api(`/api/channels?key=${enc(DASH_KEY)}`)).channels || [];
+    renderSidebar();
+
+    // If videos tab active, reload
+    if (qs('tab-videos').classList.contains('active')) loadVideos();
   }
 
-  // ── Videos tab ────────────────────────────────────────────────────────────
-  async function loadVideos(channelId) {
+  // ── Videos ────────────────────────────────────────────────────────────────
+  async function loadVideos() {
+    if (!selectedCh) return;
     const sort = qs('vid-sort').value;
-    const grid = qs('vid-grid');
-    grid.innerHTML = '<p class="no-data">Carregando vídeos...</p>';
+    const list = qs('vid-list');
+    list.innerHTML = '<p class="loading">Carregando...</p>';
 
-    const resp = await fetch(`/api/videos?key=${enc(DASH_KEY)}&channel_id=${channelId}&days=${activeDays}&sort=${sort}`);
-    if (!resp.ok) { grid.innerHTML = '<p class="no-data">Erro ao carregar vídeos.</p>'; return; }
-    const data = await resp.json();
+    const data   = await api(`/api/videos?key=${enc(DASH_KEY)}&channel_id=${enc(selectedCh.channel_id)}&days=3650&sort=${sort}`);
     const videos = data.videos || [];
-
     qs('vid-count').textContent = `${videos.length} vídeo(s)`;
 
     if (!videos.length) {
-      grid.innerHTML = '<p class="no-data">Nenhum vídeo público encontrado. Clique "Histórico completo" para coletar.</p>';
+      list.innerHTML = '<p class="no-data">Nenhum vídeo. Clique "⬇ Histórico completo" para coletar.</p>';
       return;
     }
 
-    grid.innerHTML = videos.map(v => {
-      const dur   = fmtDuration(v.duration_sec);
-      const date  = v.published_at ? new Date(v.published_at).toLocaleDateString('pt-BR') : '—';
-      const thumb = v.thumbnail_url || 'https://via.placeholder.com/160x90/1e293b/64748b?text=No+thumb';
-      return `
-        <div class="vid-row">
-          <div class="vid-thumb">
-            <img src="${thumb}" alt="" loading="lazy" />
-            ${dur ? `<span class="vid-duration">${dur}</span>` : ''}
+    list.innerHTML = videos.map(v => `
+      <div class="vid-row ${selectedVid === v.video_id ? 'vid-active' : ''}"
+           id="vr-${v.video_id}" onclick="selectVideo('${v.video_id}')">
+        <div class="vid-thumb">
+          <img src="${v.thumbnail_url || ''}" alt="" loading="lazy" onerror="this.style.display='none'" />
+          ${v.duration_sec ? `<span class="vid-dur">${fmtDur(v.duration_sec)}</span>` : ''}
+        </div>
+        <div class="vid-info">
+          <div class="vid-title">${escHtml(v.title || 'Sem título')}</div>
+          <div class="vid-date">${v.published_at ? new Date(v.published_at).toLocaleDateString('pt-BR') : '—'}</div>
+          <div class="vid-metrics">
+            <div class="vm"><span class="vm-l">Views</span><span class="vm-v" style="color:var(--blue)">${fmtNum(v.views)}</span></div>
+            <div class="vm"><span class="vm-l">Likes</span><span class="vm-v" style="color:var(--green)">${fmtNum(v.likes)}</span></div>
+            <div class="vm"><span class="vm-l">Comentários</span><span class="vm-v">${fmtNum(v.comments)}</span></div>
+            <div class="vm"><span class="vm-l">Watch time</span><span class="vm-v" style="color:var(--cyan)">${v.watch_time_minutes ? fmtNum(v.watch_time_minutes) + ' min' : '—'}</span></div>
+            <div class="vm"><span class="vm-l">Dur. média</span><span class="vm-v" style="color:var(--yellow)">${fmtDur(v.avg_view_duration_sec)}</span></div>
           </div>
-          <div class="vid-info">
-            <div class="vid-title">${escHtml(v.title || 'Sem título')}</div>
-            <div class="vid-date">${date}</div>
-            <div class="vid-metrics">
-              <div class="vid-metric"><span class="vm-label">Views</span><span class="vm-val blue">${fmtNum(v.views)}</span></div>
-              <div class="vid-metric"><span class="vm-label">Likes</span><span class="vm-val green">${fmtNum(v.likes)}</span></div>
-              <div class="vid-metric"><span class="vm-label">Comentários</span><span class="vm-val">${fmtNum(v.comments)}</span></div>
-              <div class="vid-metric"><span class="vm-label">Dur. média</span><span class="vm-val cyan">${fmtDuration(v.avg_view_duration_sec)}</span></div>
-              <div class="vid-metric"><span class="vm-label">Watch time</span><span class="vm-val yellow">${v.watch_time_minutes ? fmtNum(v.watch_time_minutes) + ' min' : '—'}</span></div>
-            </div>
-          </div>
-        </div>`;
-    }).join('');
+        </div>
+      </div>`).join('');
+  }
+
+  // ── Video detail ──────────────────────────────────────────────────────────
+  async function selectVideo(videoId) {
+    selectedVid = videoId;
+    document.querySelectorAll('.vid-row').forEach(r =>
+      r.classList.toggle('vid-active', r.id === `vr-${videoId}`)
+    );
+
+    const data = await api(`/api/video-daily?key=${enc(DASH_KEY)}&video_id=${enc(videoId)}&from=${dateFrom}&to=${dateTo}`);
+    const rows = data.rows || [];
+    const tot  = data.totals || {};
+    const meta = data.meta  || {};
+
+    const panel = qs('vid-detail');
+    panel.style.display = 'block';
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    qs('vid-detail-header').innerHTML = `
+      ${meta.thumbnail_url ? `<img src="${meta.thumbnail_url}" alt="" />` : ''}
+      <div>
+        <div class="vid-detail-title">${escHtml(meta.title || '')}</div>
+        <div class="vid-detail-sub">${meta.published_at ? new Date(meta.published_at).toLocaleDateString('pt-BR') : ''} · ${fmtDur(meta.duration_sec)} duração</div>
+      </div>`;
+
+    qs('vid-kpi-row').innerHTML = [
+      { label: 'Views (período)',     val: fmtNum(tot.views),              color: 'var(--blue)' },
+      { label: 'Watch time',          val: fmtHours(tot.watch_time_minutes), color: 'var(--cyan)' },
+      { label: 'Dur. média',          val: fmtDur(tot.avg_view_duration_sec), color: 'var(--yellow)' },
+    ].map(k => `
+      <div class="kpi-card">
+        <div class="kpi-label">${k.label}</div>
+        <div class="kpi-val" style="color:${k.color}">${k.val}</div>
+      </div>`).join('');
+
+    const labels = rows.map(r => r.date.slice(5));
+    drawLine('vc-views', 'vct-views', labels, rows.map(r => r.views || 0),              '#60a5fa', fmtNum);
+    drawLine('vc-watch', 'vct-watch', labels, rows.map(r => r.watch_time_minutes || 0), '#22d3ee', v => fmtNum(v) + ' min');
   }
 
   // ── Remove channel ────────────────────────────────────────────────────────
   async function removeChannel(channelId, name) {
     if (!confirm(`Remover "${name}"?`)) return;
-    const resp = await fetch(`/api/delete-channel?key=${enc(DASH_KEY)}&channel_id=${enc(channelId)}`, { method: 'DELETE' });
-    if (!resp.ok) { alert('Erro ao remover.'); return; }
-    if (selectedChannelId === channelId) { selectedChannelId = null; qs('detail').style.display = 'none'; }
+    await fetch(`/api/delete-channel?key=${enc(DASH_KEY)}&channel_id=${enc(channelId)}`, { method: 'DELETE' });
+    if (selectedCh?.channel_id === channelId) {
+      selectedCh = null;
+      qs('empty-state').style.display  = 'block';
+      qs('detail-area').style.display  = 'none';
+    }
     allChannels = allChannels.filter(c => c.channel_id !== channelId);
-    renderAll();
+    renderSidebar();
+  }
+
+  // ── Chart helper ──────────────────────────────────────────────────────────
+  function drawLine(canvasId, totalId, labels, values, color, fmt) {
+    if (charts[canvasId]) { charts[canvasId].destroy(); delete charts[canvasId]; }
+    const canvas = qs(canvasId);
+    if (!canvas) return;
+    const total = values.reduce((a, b) => a + b, 0);
+    const totalEl = qs(totalId);
+    if (totalEl) totalEl.textContent = fmt ? fmt(total) : total;
+
+    charts[canvasId] = new Chart(canvas.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          data: values,
+          borderColor: color,
+          backgroundColor: color + '20',
+          borderWidth: 2,
+          pointRadius: labels.length <= 14 ? 3 : 0,
+          pointHoverRadius: 5,
+          fill: true,
+          tension: 0.3,
+        }],
+      },
+      options: {
+        responsive: true,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => fmt ? fmt(ctx.parsed.y) : ctx.parsed.y } },
+        },
+        scales: {
+          x: { ticks: { color: '#64748b', font: { size: 10 }, maxTicksLimit: 10 }, grid: { color: '#1e293b' } },
+          y: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#2d3f55' }, beginAtZero: true },
+        },
+      },
+    });
   }
 
   // ── Utils ─────────────────────────────────────────────────────────────────
-  function fmtNum(n) {
-    if (n == null) return '—';
-    if (Math.abs(n) >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
-    if (Math.abs(n) >= 1_000)     return (n / 1_000).toFixed(1) + 'K';
-    return String(n);
-  }
-  function fmtDuration(sec) {
-    if (!sec) return '';
-    const m = Math.floor(sec / 60), s = sec % 60;
-    const h = Math.floor(m / 60);
-    if (h > 0) return `${h}:${String(m % 60).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-    return `${m}:${String(s).padStart(2,'0')}`;
-  }
-  function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-  function enc(s) { return encodeURIComponent(s); }
+  function today()       { return new Date().toISOString().slice(0, 10); }
+  function daysAgo(n)    { return new Date(Date.now() - n * 86400000).toISOString().slice(0, 10); }
+  function fmtNum(n)     { if (!n) return '0'; if (Math.abs(n) >= 1e6) return (n/1e6).toFixed(1)+'M'; if (Math.abs(n) >= 1e3) return (n/1e3).toFixed(1)+'K'; return String(n); }
+  function fmtHours(min) { if (!min) return '0h'; const h = (min/60); return h >= 1 ? h.toFixed(1)+'h' : min+'min'; }
+  function fmtDur(sec)   { if (!sec) return '—'; const m = Math.floor(sec/60), s = sec%60, h = Math.floor(m/60); return h > 0 ? `${h}:${String(m%60).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`; }
+  function escHtml(s)    { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 </script>
 </body>
 </html>

@@ -1,177 +1,175 @@
-// Sync core — usado pelo cron, pelo /api/sync e pelo /auth/callback.
-// Coleta channel stats + vídeos públicos + video stats para um canal.
+// Sync core — coleta dados do YouTube para um canal.
+// Chamado pelo cron, /api/sync e /auth/callback.
 
 export async function syncChannel(channel, env, options = {}) {
-  const {
-    startDate = null,  // YYYY-MM-DD — null = só hoje
-    endDate   = null,  // YYYY-MM-DD — null = hoje
-  } = options;
-
-  const today     = ymd(new Date());
-  const dateFrom  = startDate || today;
-  const dateTo    = endDate   || today;
+  const today    = ymd(new Date());
+  const dateFrom = options.startDate || today;
+  const dateTo   = options.endDate   || today;
 
   const accessToken = await getAccessToken(channel, env);
 
+  // Snapshots cumulativos (Data API) + dados diários (Analytics API)
   await Promise.all([
-    syncChannelStats(channel, accessToken, dateFrom, dateTo, env),
+    syncCumulativeSnapshot(channel, accessToken, env),
+    syncChannelDaily(channel, accessToken, dateFrom, dateTo, env),
     syncVideos(channel, accessToken, dateFrom, dateTo, env),
   ]);
 }
 
-// ── Channel-level daily stats ─────────────────────────────────────────────
+// ── Snapshot cumulativo do canal (Data API) ───────────────────────────────
+// Salva o estado atual do canal (total de inscritos, views, etc.)
 
-async function syncChannelStats(channel, accessToken, dateFrom, dateTo, env) {
-  // Gera lista de datas no intervalo
-  const dates = dateRange(dateFrom, dateTo);
-
-  for (const date of dates) {
-    // Subscriber count vem do Data API (snapshot atual, não histórico)
-    // Analytics API dá impressions/CTR/watch time por dia
-    const [dataStats, analyticsRow] = await Promise.all([
-      fetchChannelDataStats(accessToken),
-      fetchChannelAnalytics(accessToken, date, date),
-    ]);
-
-    await env.DB.prepare(`
-      INSERT INTO channel_stats (
-        channel_id, date, subscribers, total_views, video_count, comment_count,
-        impressions, ctr, watch_time_hours, subscribers_gained, subscribers_lost
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(channel_id, date) DO UPDATE SET
-        subscribers        = excluded.subscribers,
-        total_views        = excluded.total_views,
-        video_count        = excluded.video_count,
-        comment_count      = excluded.comment_count,
-        impressions        = excluded.impressions,
-        ctr                = excluded.ctr,
-        watch_time_hours   = excluded.watch_time_hours,
-        subscribers_gained = excluded.subscribers_gained,
-        subscribers_lost   = excluded.subscribers_lost,
-        snapshot_at        = unixepoch()
-    `).bind(
-      channel.channel_id, date,
-      dataStats.subscribers, dataStats.total_views, dataStats.video_count, dataStats.comment_count,
-      analyticsRow.impressions, analyticsRow.ctr, analyticsRow.watch_time_hours,
-      analyticsRow.subscribers_gained, analyticsRow.subscribers_lost
-    ).run();
-  }
-}
-
-async function fetchChannelDataStats(accessToken) {
-  const resp = await fetch(
+async function syncCumulativeSnapshot(channel, accessToken, env) {
+  const today = ymd(new Date());
+  const resp  = await fetch(
     'https://www.googleapis.com/youtube/v3/channels?part=statistics&mine=true',
     { headers: { Authorization: `Bearer ${accessToken}` } }
   );
-  if (!resp.ok) throw new Error(`Data API ${resp.status}`);
+  if (!resp.ok) return;
   const json = await resp.json();
-  const s = json.items?.[0]?.statistics || {};
-  return {
-    subscribers:   parseInt(s.subscriberCount || '0', 10),
-    total_views:   parseInt(s.viewCount        || '0', 10),
-    video_count:   parseInt(s.videoCount       || '0', 10),
-    comment_count: parseInt(s.commentCount     || '0', 10),
-  };
+  const s    = json.items?.[0]?.statistics || {};
+
+  await env.DB.prepare(`
+    INSERT INTO channel_stats (channel_id, date, subscribers, total_views, video_count, comment_count)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(channel_id, date) DO UPDATE SET
+      subscribers   = excluded.subscribers,
+      total_views   = excluded.total_views,
+      video_count   = excluded.video_count,
+      comment_count = excluded.comment_count,
+      snapshot_at   = unixepoch()
+  `).bind(
+    channel.channel_id, today,
+    parseInt(s.subscriberCount || '0', 10),
+    parseInt(s.viewCount       || '0', 10),
+    parseInt(s.videoCount      || '0', 10),
+    parseInt(s.commentCount    || '0', 10),
+  ).run();
 }
 
-async function fetchChannelAnalytics(accessToken, startDate, endDate) {
-  try {
-    const resp = await fetch(
-      `https://youtubeanalytics.googleapis.com/v2/reports` +
-      `?ids=channel==MINE&startDate=${startDate}&endDate=${endDate}` +
-      `&metrics=estimatedMinutesWatched,averageViewDuration,subscribersGained,subscribersLost`,
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    );
-    if (!resp.ok) return { impressions: 0, ctr: 0, watch_time_hours: 0, subscribers_gained: 0, subscribers_lost: 0 };
-    const json = await resp.json();
-    const row  = json.rows?.[0];
-    if (!row) return { impressions: 0, ctr: 0, watch_time_hours: 0, subscribers_gained: 0, subscribers_lost: 0 };
-    return {
-      impressions:        0,
-      ctr:                0,
-      watch_time_hours:   parseFloat((row[0] || 0) / 60),
-      subscribers_gained: parseInt(row[2] || 0, 10),
-      subscribers_lost:   parseInt(row[3] || 0, 10),
-    };
-  } catch (_) {
-    return { impressions: 0, ctr: 0, watch_time_hours: 0, subscribers_gained: 0, subscribers_lost: 0 };
-  }
-}
+// ── Dados diários do canal (Analytics API com dimensions=day) ─────────────
 
-// ── Videos + per-video analytics ─────────────────────────────────────────
-
-async function syncVideos(channel, accessToken, dateFrom, dateTo, env) {
-  // 1. Buscar todos os vídeos públicos do canal via uploadsPlaylist
-  const channelResp = await fetch(
-    `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&mine=true`,
+async function syncChannelDaily(channel, accessToken, dateFrom, dateTo, env) {
+  // Query 1: views, watch time, subscribers
+  const r1 = await fetch(
+    `https://youtubeanalytics.googleapis.com/v2/reports` +
+    `?ids=channel==MINE&startDate=${dateFrom}&endDate=${dateTo}` +
+    `&dimensions=day&metrics=views,estimatedMinutesWatched,subscribersGained,subscribersLost` +
+    `&sort=day`,
     { headers: { Authorization: `Bearer ${accessToken}` } }
   );
-  if (!channelResp.ok) return;
-  const channelJson  = await channelResp.json();
-  const uploadsId    = channelJson.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
-  if (!uploadsId) return;
 
-  const videoIds = await fetchAllPublicVideoIds(accessToken, uploadsId);
-  if (!videoIds.length) return;
+  const rows1 = r1.ok ? (await r1.json()).rows || [] : [];
 
-  // 2. Buscar metadados em lotes de 50
-  for (let i = 0; i < videoIds.length; i += 50) {
-    const batch = videoIds.slice(i, i + 50);
-    await upsertVideoMetadata(accessToken, batch, channel.channel_id, env);
+  // Query 2: impressions + CTR (query separada — falha se combinada com outros)
+  const r2 = await fetch(
+    `https://youtubeanalytics.googleapis.com/v2/reports` +
+    `?ids=channel==MINE&startDate=${dateFrom}&endDate=${dateTo}` +
+    `&dimensions=day&metrics=impressions,impressionClickThroughRate` +
+    `&sort=day`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+
+  // Impressions pode falhar sem YPP — aceitamos silenciosamente
+  const impressionMap = {};
+  if (r2.ok) {
+    const rows2 = (await r2.json()).rows || [];
+    for (const [date, imp, ctr] of rows2) {
+      impressionMap[date] = { impressions: parseInt(imp || 0), ctr: parseFloat(ctr || 0) };
+    }
   }
 
-  // 3. Buscar métricas por vídeo via Analytics API (agregado para o período)
-  await syncVideoAnalytics(accessToken, channel.channel_id, dateFrom, dateTo, env);
+  if (!rows1.length) return;
+
+  const stmts = rows1.map(([date, views, watchMin, subGained, subLost]) => {
+    const imp = impressionMap[date] || { impressions: 0, ctr: 0 };
+    return env.DB.prepare(`
+      INSERT INTO channel_daily (
+        channel_id, date, views, watch_time_minutes,
+        subscribers_gained, subscribers_lost, impressions, ctr
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(channel_id, date) DO UPDATE SET
+        views              = excluded.views,
+        watch_time_minutes = excluded.watch_time_minutes,
+        subscribers_gained = excluded.subscribers_gained,
+        subscribers_lost   = excluded.subscribers_lost,
+        impressions        = excluded.impressions,
+        ctr                = excluded.ctr
+    `).bind(
+      channel.channel_id, date,
+      parseInt(views || 0), parseInt(watchMin || 0),
+      parseInt(subGained || 0), parseInt(subLost || 0),
+      imp.impressions, imp.ctr
+    );
+  });
+
+  await env.DB.batch(stmts);
 }
 
-async function fetchAllPublicVideoIds(accessToken, uploadsPlaylistId) {
+// ── Vídeos: metadados + stats cumulativos + dados diários ─────────────────
+
+async function syncVideos(channel, accessToken, dateFrom, dateTo, env) {
+  // 1. Buscar playlist de uploads
+  const chResp = await fetch(
+    'https://www.googleapis.com/youtube/v3/channels?part=contentDetails&mine=true',
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!chResp.ok) return;
+  const chJson    = await chResp.json();
+  const uploadsId = chJson.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
+  if (!uploadsId) return;
+
+  // 2. Buscar todos os video IDs públicos
+  const videoIds = await fetchPublicVideoIds(accessToken, uploadsId);
+  if (!videoIds.length) return;
+
+  // 3. Metadados + stats cumulativos em lotes de 50
+  for (let i = 0; i < videoIds.length; i += 50) {
+    await upsertVideoMetadata(accessToken, videoIds.slice(i, i + 50), channel.channel_id, env);
+  }
+
+  // 4. Dados diários por vídeo (Analytics API dimensions=video,day)
+  await syncVideoDaily(channel, accessToken, dateFrom, dateTo, env);
+}
+
+async function fetchPublicVideoIds(accessToken, uploadsPlaylistId) {
   const ids = [];
   let pageToken = '';
-
   do {
     const url = `https://www.googleapis.com/youtube/v3/playlistItems` +
       `?part=contentDetails,status&playlistId=${uploadsPlaylistId}&maxResults=50` +
       (pageToken ? `&pageToken=${pageToken}` : '');
-
     const resp = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
     if (!resp.ok) break;
     const json = await resp.json();
-
     for (const item of json.items || []) {
-      // Filtro: só vídeos públicos
       if (item.status?.privacyStatus === 'public') {
         ids.push(item.contentDetails.videoId);
       }
     }
     pageToken = json.nextPageToken || '';
   } while (pageToken);
-
   return ids;
 }
 
 async function upsertVideoMetadata(accessToken, videoIds, channelId, env) {
   const resp = await fetch(
-    `https://www.googleapis.com/youtube/v3/videos` +
-    `?part=snippet,contentDetails,statistics&id=${videoIds.join(',')}`,
+    `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&id=${videoIds.join(',')}`,
     { headers: { Authorization: `Bearer ${accessToken}` } }
   );
   if (!resp.ok) return;
-  const json = await resp.json();
+  const json  = await resp.json();
   const today = ymd(new Date());
 
   const metaStmts  = [];
   const statsStmts = [];
 
   for (const v of json.items || []) {
-    const thumb = v.snippet?.thumbnails?.medium?.url
-               || v.snippet?.thumbnails?.default?.url
-               || '';
-    const durationSec = iso8601DurationToSeconds(v.contentDetails?.duration || '');
-    const views    = parseInt(v.statistics?.viewCount    || '0', 10);
-    const likes    = parseInt(v.statistics?.likeCount    || '0', 10);
-    const comments = parseInt(v.statistics?.commentCount || '0', 10);
+    const thumb = v.snippet?.thumbnails?.maxres?.url
+               || v.snippet?.thumbnails?.standard?.url
+               || v.snippet?.thumbnails?.medium?.url
+               || v.snippet?.thumbnails?.default?.url || '';
 
-    // Metadados do vídeo
     metaStmts.push(env.DB.prepare(`
       INSERT INTO videos (video_id, channel_id, title, thumbnail_url, published_at, duration_sec)
       VALUES (?, ?, ?, ?, ?, ?)
@@ -180,9 +178,15 @@ async function upsertVideoMetadata(accessToken, videoIds, channelId, env) {
         thumbnail_url = excluded.thumbnail_url,
         duration_sec  = excluded.duration_sec,
         updated_at    = unixepoch()
-    `).bind(v.id, channelId, v.snippet?.title || '', thumb, v.snippet?.publishedAt || '', durationSec));
+    `).bind(
+      v.id, channelId,
+      v.snippet?.title || '',
+      thumb,
+      v.snippet?.publishedAt || '',
+      iso8601ToSeconds(v.contentDetails?.duration || '')
+    ));
 
-    // Métricas básicas da Data API (views, likes, comentários) — sempre disponíveis
+    // Stats cumulativos do vídeo (total acumulado)
     statsStmts.push(env.DB.prepare(`
       INSERT INTO video_stats (video_id, channel_id, date, views, likes, comments)
       VALUES (?, ?, ?, ?, ?, ?)
@@ -190,54 +194,56 @@ async function upsertVideoMetadata(accessToken, videoIds, channelId, env) {
         views    = excluded.views,
         likes    = excluded.likes,
         comments = excluded.comments
-    `).bind(v.id, channelId, today, views, likes, comments));
+    `).bind(
+      v.id, channelId, today,
+      parseInt(v.statistics?.viewCount    || '0', 10),
+      parseInt(v.statistics?.likeCount    || '0', 10),
+      parseInt(v.statistics?.commentCount || '0', 10),
+    ));
   }
 
   if (metaStmts.length)  await env.DB.batch(metaStmts);
   if (statsStmts.length) await env.DB.batch(statsStmts);
 }
 
-async function syncVideoAnalytics(accessToken, channelId, startDate, endDate, env) {
-  const today = ymd(new Date());
-  let pageToken = '';
+async function syncVideoDaily(channel, accessToken, dateFrom, dateTo, env) {
+  // Buscar IDs de vídeos já cadastrados para filtrar resultados da Analytics API
+  const existingIds = new Set(
+    (await env.DB.prepare('SELECT video_id FROM videos WHERE channel_id = ?')
+      .bind(channel.channel_id).all()).results.map(r => r.video_id)
+  );
+  if (!existingIds.size) return;
 
+  let pageToken = '';
   do {
     const url = `https://youtubeanalytics.googleapis.com/v2/reports` +
-      `?ids=channel==MINE` +
-      `&startDate=${startDate}&endDate=${endDate}` +
-      `&dimensions=video` +
+      `?ids=channel==MINE&startDate=${dateFrom}&endDate=${dateTo}` +
+      `&dimensions=video,day` +
       `&metrics=views,estimatedMinutesWatched,averageViewDuration` +
-      `&maxResults=200` +
-      `&sort=-views` +
+      `&maxResults=200&sort=-views` +
       (pageToken ? `&pageToken=${pageToken}` : '');
 
     const resp = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
     if (!resp.ok) {
-      console.warn(`[sync] Analytics API (video) ${resp.status}:`, await resp.text().catch(() => ''));
+      console.warn(`[sync] video daily analytics ${resp.status}:`, await resp.text().catch(() => ''));
       break;
     }
     const json = await resp.json();
     const rows = json.rows || [];
 
-    // Só atualiza vídeos que já existem na tabela videos (para não violar FK)
-    const existingIds = new Set(
-      (await env.DB.prepare(`SELECT video_id FROM videos WHERE channel_id = ?`).bind(channelId).all())
-        .results.map(r => r.video_id)
-    );
-
     const stmts = rows
-      .filter(row => existingIds.has(row[0]))
-      .map(row => {
-        const [videoId, views, watchMin, avgDurSec] = row;
-        return env.DB.prepare(`
-          INSERT INTO video_stats (video_id, channel_id, date, views, watch_time_minutes, avg_view_duration_sec)
+      .filter(r => existingIds.has(r[0]))
+      .map(([videoId, date, views, watchMin, avgDur]) =>
+        env.DB.prepare(`
+          INSERT INTO video_daily (video_id, channel_id, date, views, watch_time_minutes, avg_view_duration_sec)
           VALUES (?, ?, ?, ?, ?, ?)
           ON CONFLICT(video_id, date) DO UPDATE SET
             views                 = excluded.views,
             watch_time_minutes    = excluded.watch_time_minutes,
             avg_view_duration_sec = excluded.avg_view_duration_sec
-        `).bind(videoId, channelId, today, parseInt(views || 0), parseInt(watchMin || 0), parseInt(avgDurSec || 0));
-      });
+        `).bind(videoId, channel.channel_id, date,
+          parseInt(views || 0), parseInt(watchMin || 0), parseInt(avgDur || 0))
+      );
 
     if (stmts.length) await env.DB.batch(stmts);
     pageToken = json.nextPageToken || '';
@@ -277,20 +283,9 @@ function ymd(d) {
   return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}`;
 }
 
-function dateRange(from, to) {
-  const dates = [];
-  const cur   = new Date(from + 'T00:00:00Z');
-  const end   = new Date(to   + 'T00:00:00Z');
-  while (cur <= end) {
-    dates.push(ymd(cur));
-    cur.setUTCDate(cur.getUTCDate() + 1);
-  }
-  return dates;
-}
-
-function iso8601DurationToSeconds(duration) {
-  if (!duration) return 0;
-  const m = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+function iso8601ToSeconds(dur) {
+  if (!dur) return 0;
+  const m = dur.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
   if (!m) return 0;
   return (parseInt(m[1] || 0) * 3600) + (parseInt(m[2] || 0) * 60) + parseInt(m[3] || 0);
 }
