@@ -8,4 +8,4 @@ crons = ["0 6 * * *"]
 [[d1_databases]]
 binding = "DB"
 database_name = "youtube-tracker-db"
-database_id = "REPLACE_WITH_YOUR_DATABASE_ID"
+database_id = "fa0db19f-a523-4c52-984d-682e527820c9"
