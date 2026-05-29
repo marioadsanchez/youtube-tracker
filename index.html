@@ -7,86 +7,97 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
-      --bg:        #0f172a;
-      --surface:   #1e293b;
-      --border:    #334155;
-      --text:      #e2e8f0;
-      --muted:     #94a3b8;
-      --dim:       #64748b;
-      --red:       #f87171;
-      --green:     #4ade80;
-      --blue:      #60a5fa;
-      --yellow:    #fbbf24;
-      --purple:    #a78bfa;
-      --cyan:      #22d3ee;
+      --bg: #0f172a; --surface: #1e293b; --border: #334155;
+      --text: #e2e8f0; --muted: #94a3b8; --dim: #64748b;
+      --red: #f87171; --green: #4ade80; --blue: #60a5fa;
+      --yellow: #fbbf24; --purple: #a78bfa; --cyan: #22d3ee;
     }
+    body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; min-height: 100vh; }
 
-    body { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, sans-serif; min-height: 100vh; }
-
-    /* Auth gate */
+    /* Auth */
     #auth-gate { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-    #auth-gate .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-                       padding: 2.5rem; width: 320px; text-align: center; }
-    #auth-gate h2 { margin-bottom: 1.25rem; font-size: 1.25rem; }
-    #auth-gate input { width: 100%; background: rgba(255,255,255,.05); border: 1px solid var(--border);
-                       color: var(--text); border-radius: 8px; padding: .6rem 1rem; font-size: .95rem;
-                       margin-bottom: .75rem; outline: none; }
-    #auth-gate button { width: 100%; background: var(--blue); color: #0f172a; border: none;
-                        border-radius: 8px; padding: .7rem; font-weight: 700; cursor: pointer; font-size: .95rem; }
+    .auth-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 2.5rem; width: 320px; text-align: center; }
+    .auth-card h2 { margin-bottom: 1.25rem; font-size: 1.25rem; }
+    .auth-card input { width: 100%; background: rgba(255,255,255,.05); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: .6rem 1rem; font-size: .95rem; margin-bottom: .75rem; outline: none; }
+    .auth-card button { width: 100%; background: var(--blue); color: #0f172a; border: none; border-radius: 8px; padding: .7rem; font-weight: 700; cursor: pointer; font-size: .95rem; }
     #auth-error { color: var(--red); font-size: .85rem; margin-top: .5rem; min-height: 1.2rem; }
 
-    /* Main layout */
+    /* App */
     #app { display: none; }
-    header { background: var(--surface); border-bottom: 1px solid var(--border);
-             padding: .9rem 1.5rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
-    header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; }
-    .period-btn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 6px;
-                  padding: .35rem .75rem; cursor: pointer; font-size: .8rem; }
-    .period-btn.active { background: var(--blue); border-color: var(--blue); color: #0f172a; font-weight: 700; }
-    .connect-btn { background: none; border: 1px solid var(--green); color: var(--green); border-radius: 6px;
-                   padding: .35rem .75rem; cursor: pointer; font-size: .8rem; text-decoration: none; }
+    header { background: var(--surface); border-bottom: 1px solid var(--border); padding: .85rem 1.5rem; display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
+    header h1 { font-size: 1.05rem; font-weight: 700; flex: 1; min-width: 120px; }
+    .hbtn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: .3rem .7rem; cursor: pointer; font-size: .78rem; }
+    .hbtn.active { background: var(--blue); border-color: var(--blue); color: #0f172a; font-weight: 700; }
+    .hbtn.green { border-color: var(--green); color: var(--green); }
+    .hbtn.blue  { border-color: var(--blue);  color: var(--blue);  }
+    #last-updated { font-size: .72rem; color: var(--dim); margin-left: auto; }
 
-    main { max-width: 1280px; margin: 0 auto; padding: 1.5rem; }
+    main { max-width: 1400px; margin: 0 auto; padding: 1.25rem 1.5rem; }
 
-    /* Overview cards */
-    .overview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: .75rem; margin-bottom: 2rem; }
-    .overview-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-                     padding: 1rem 1.25rem; cursor: pointer; transition: border-color .15s; }
-    .overview-card:hover, .overview-card.selected { border-color: var(--blue); }
-    .overview-card .name { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: .4rem; }
-    .overview-card .subs { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-    .overview-card .delta { font-size: .8rem; margin-top: .25rem; }
-    .delta.up { color: var(--green); }
-    .delta.down { color: var(--red); }
-    .delta.neutral { color: var(--muted); }
-    .badge-connected { font-size: .65rem; color: var(--green); margin-left: .4rem; }
-    .badge-pending   { font-size: .65rem; color: var(--yellow); margin-left: .4rem; }
+    /* Connect bar */
+    .connect-bar { display: flex; align-items: center; gap: .6rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .connect-bar input { background: rgba(255,255,255,.05); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: .45rem .9rem; font-size: .88rem; outline: none; width: 210px; }
 
-    /* Detail section */
+    /* Overview */
+    .overview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: .75rem; margin-bottom: 1.75rem; }
+    .ov-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.1rem; cursor: pointer; transition: border-color .15s; }
+    .ov-card:hover, .ov-card.sel { border-color: var(--blue); }
+    .ov-card .cname { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: .35rem; display: flex; justify-content: space-between; }
+    .ov-card .csubs { font-size: 1.45rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .ov-card .cdelta { font-size: .78rem; margin-top: .2rem; }
+    .up { color: var(--green); } .down { color: var(--red); } .neutral { color: var(--muted); }
+    .dot-on  { color: var(--green); font-size: .6rem; }
+    .dot-off { color: var(--yellow); font-size: .6rem; }
+    .rm-btn { background: none; border: none; color: var(--dim); cursor: pointer; font-size: .85rem; padding: 0; }
+
+    /* Tabs */
     #detail { display: none; }
-    #detail h2 { font-size: 1rem; font-weight: 700; margin-bottom: 1rem; color: var(--muted); }
-    #detail h2 span { color: var(--text); }
+    .tabs { display: flex; gap: .5rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); padding-bottom: .75rem; }
+    .tab-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: .85rem; padding: .35rem .75rem; border-radius: 6px; }
+    .tab-btn.active { background: var(--surface); color: var(--text); font-weight: 700; border: 1px solid var(--border); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
 
-    .charts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1rem; }
-    .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; }
-    .chart-card .chart-title { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: .25rem; }
-    .chart-card .chart-value { font-size: 1.4rem; font-weight: 700; margin-bottom: .75rem; font-variant-numeric: tabular-nums; }
-    .chart-card canvas { max-height: 140px; }
+    /* Channel charts */
+    .charts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
+    .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.2rem; }
+    .cc-title { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: .2rem; }
+    .cc-value { font-size: 1.35rem; font-weight: 700; margin-bottom: .65rem; font-variant-numeric: tabular-nums; }
+    .chart-card canvas { max-height: 130px; }
+
+    /* Videos table */
+    .vid-controls { display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .vid-controls select { background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: .35rem .7rem; font-size: .82rem; outline: none; cursor: pointer; }
+    .vid-grid { display: grid; gap: .75rem; }
+    .vid-row { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; display: grid; grid-template-columns: 160px 1fr; gap: 0; overflow: hidden; transition: border-color .15s; }
+    .vid-row:hover { border-color: var(--blue); }
+    .vid-thumb { position: relative; }
+    .vid-thumb img { width: 160px; height: 90px; object-fit: cover; display: block; }
+    .vid-duration { position: absolute; bottom: 4px; right: 4px; background: rgba(0,0,0,.8); color: #fff; font-size: .65rem; padding: 1px 5px; border-radius: 3px; font-variant-numeric: tabular-nums; }
+    .vid-info { padding: .75rem 1rem; display: flex; flex-direction: column; gap: .4rem; }
+    .vid-title { font-size: .88rem; font-weight: 600; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .vid-date { font-size: .72rem; color: var(--dim); }
+    .vid-metrics { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; margin-top: auto; }
+    .vid-metric { font-size: .78rem; display: flex; flex-direction: column; gap: .1rem; }
+    .vid-metric .vm-label { color: var(--dim); font-size: .65rem; text-transform: uppercase; }
+    .vid-metric .vm-val { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .vid-metric .vm-val.blue   { color: var(--blue); }
+    .vid-metric .vm-val.green  { color: var(--green); }
+    .vid-metric .vm-val.yellow { color: var(--yellow); }
+    .vid-metric .vm-val.cyan   { color: var(--cyan); }
 
     .no-data { color: var(--dim); font-size: .9rem; text-align: center; padding: 3rem; }
-
   </style>
 </head>
 <body>
 
 <!-- Auth Gate -->
 <div id="auth-gate">
-  <div class="card">
+  <div class="auth-card">
     <h2>🎬 YouTube Tracker</h2>
     <input id="key-input" type="password" placeholder="Dashboard key" autocomplete="off" />
-    <button id="key-btn">Entrar</button>
+    <button id="key-btn" type="button">Entrar</button>
     <div id="auth-error"></div>
   </div>
 </div>
@@ -95,24 +106,20 @@
 <div id="app">
   <header>
     <h1>🎬 YouTube Tracker</h1>
-    <button class="period-btn active" data-days="7">7d</button>
-    <button class="period-btn" data-days="30">30d</button>
-    <button class="period-btn" data-days="90">90d</button>
-    <span id="last-updated" style="font-size:.75rem;color:var(--dim);margin-left:auto"></span>
-    <button id="sync-btn" class="connect-btn" style="border-color:var(--blue);color:var(--blue)">↻ Sincronizar</button>
+    <button class="hbtn active" data-days="7" type="button">7d</button>
+    <button class="hbtn" data-days="30" type="button">30d</button>
+    <button class="hbtn" data-days="90" type="button">90d</button>
+    <button class="hbtn" data-days="365" type="button">1a</button>
+    <span id="last-updated"></span>
+    <button id="sync-btn" class="hbtn blue" type="button">↻ Sincronizar hoje</button>
+    <button id="sync-all-btn" class="hbtn green" type="button">⬇ Histórico completo</button>
   </header>
 
   <main>
-    <!-- Connect new channel -->
-    <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:1.5rem;flex-wrap:wrap">
-      <input id="new-client-name" type="text" placeholder="Nome do cliente / canal"
-        style="background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--text);
-               border-radius:8px;padding:.5rem .9rem;font-size:.9rem;outline:none;width:220px" />
-      <button id="connect-btn"
-        style="background:none;border:1px solid var(--green);color:var(--green);border-radius:8px;
-               padding:.5rem 1rem;cursor:pointer;font-size:.85rem;font-weight:600">
-        + Conectar canal
-      </button>
+    <!-- Connect bar -->
+    <div class="connect-bar">
+      <input id="new-client-name" type="text" placeholder="Nome do cliente" />
+      <button id="connect-btn" class="hbtn green" type="button">+ Conectar canal</button>
     </div>
 
     <!-- Overview -->
@@ -120,206 +127,205 @@
 
     <!-- Detail -->
     <div id="detail">
-      <h2>Detalhe: <span id="detail-name"></span></h2>
-      <div class="charts-grid" id="charts-grid"></div>
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="channel" type="button">📊 Canal</button>
+        <button class="tab-btn" data-tab="videos" type="button">🎬 Vídeos</button>
+      </div>
+
+      <!-- Tab: Canal -->
+      <div class="tab-panel active" id="tab-channel">
+        <div class="charts-grid" id="charts-grid"></div>
+      </div>
+
+      <!-- Tab: Vídeos -->
+      <div class="tab-panel" id="tab-videos">
+        <div class="vid-controls">
+          <span style="font-size:.82rem;color:var(--muted)">Ordenar por:</span>
+          <select id="vid-sort">
+            <option value="views">Views</option>
+            <option value="impressions">Impressões</option>
+            <option value="ctr">CTR</option>
+            <option value="likes">Likes</option>
+            <option value="comments">Comentários</option>
+          </select>
+          <span id="vid-count" style="font-size:.78rem;color:var(--dim)"></span>
+        </div>
+        <div class="vid-grid" id="vid-grid"></div>
+      </div>
     </div>
   </main>
 </div>
 
 <script>
-  // ── Auth ──────────────────────────────────────────────────────────────────
-  let DASH_KEY = '';
-  let activeDays = 7;
-  let selectedChannelId = null;
-  let allChannels = [];
-
+  let DASH_KEY = '', activeDays = 7, selectedChannelId = null, allChannels = [];
   const qs = id => document.getElementById(id);
 
+  // ── Auth ──────────────────────────────────────────────────────────────────
   qs('key-btn').addEventListener('click', tryLogin);
   qs('key-input').addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
 
   async function tryLogin() {
     const key = qs('key-input').value.trim();
     if (!key) return;
-    const resp = await fetch(`/api/channels?key=${encodeURIComponent(key)}`);
+    const resp = await fetch(`/api/channels?key=${enc(key)}`);
     if (resp.status === 401) { qs('auth-error').textContent = 'Chave inválida.'; return; }
     DASH_KEY = key;
     qs('auth-gate').style.display = 'none';
     qs('app').style.display = 'block';
-    const data = await resp.json();
-    allChannels = data.channels || [];
+    allChannels = (await resp.json()).channels || [];
     renderAll();
   }
 
-  // ── Sync button ──────────────────────────────────────────────────────────
-  qs('sync-btn').addEventListener('click', async () => {
-    const btn = qs('sync-btn');
-    btn.textContent = '↻ Sincronizando...';
+  // ── Period buttons ────────────────────────────────────────────────────────
+  document.querySelectorAll('.hbtn[data-days]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.hbtn[data-days]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeDays = parseInt(btn.dataset.days);
+      if (selectedChannelId) { loadDetail(selectedChannelId); loadVideos(selectedChannelId); }
+    });
+  });
+
+  // ── Tabs ──────────────────────────────────────────────────────────────────
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      qs(`tab-${btn.dataset.tab}`).classList.add('active');
+      if (btn.dataset.tab === 'videos' && selectedChannelId) loadVideos(selectedChannelId);
+    });
+  });
+
+  // ── Sync buttons ──────────────────────────────────────────────────────────
+  qs('sync-btn').addEventListener('click', () => doSync(1));
+  qs('sync-all-btn').addEventListener('click', () => {
+    if (confirm('Coletar histórico completo de todos os canais? Pode demorar alguns minutos.')) doSync(3650);
+  });
+
+  async function doSync(days) {
+    const btn = days === 1 ? qs('sync-btn') : qs('sync-all-btn');
+    const orig = btn.textContent;
+    btn.textContent = '⏳ Aguarde...';
     btn.disabled = true;
     try {
-      const resp = await fetch(`/api/sync?key=${encodeURIComponent(DASH_KEY)}`, { method: 'POST' });
+      const resp = await fetch(`/api/sync?key=${enc(DASH_KEY)}&days=${days}`, { method: 'POST' });
       const data = await resp.json();
-      btn.textContent = `✓ ${data.synced} canal(is) sincronizado(s)`;
-      // Reload channels and detail
-      const ch = await fetch(`/api/channels?key=${encodeURIComponent(DASH_KEY)}`);
-      const chData = await ch.json();
-      allChannels = chData.channels || [];
+      btn.textContent = `✓ ${data.synced} canal(is)`;
+      const ch = await fetch(`/api/channels?key=${enc(DASH_KEY)}`);
+      allChannels = (await ch.json()).channels || [];
       renderAll();
-      if (selectedChannelId) loadDetail(selectedChannelId);
-    } catch (e) {
-      btn.textContent = '✗ Erro';
-    } finally {
-      setTimeout(() => { btn.textContent = '↻ Sincronizar'; btn.disabled = false; }, 3000);
-    }
-  });
+      if (selectedChannelId) { loadDetail(selectedChannelId); loadVideos(selectedChannelId); }
+    } catch (_) { btn.textContent = '✗ Erro'; }
+    finally { setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 3000); }
+  }
 
   // ── Connect button ────────────────────────────────────────────────────────
   qs('connect-btn').addEventListener('click', () => {
     const name = qs('new-client-name').value.trim();
     if (!name) { qs('new-client-name').focus(); return; }
-    const url = `/auth/connect?key=${encodeURIComponent(DASH_KEY)}&client=${encodeURIComponent(name)}`;
-    window.open(url, '_blank');
-    // Reload channels after 5s to pick up newly connected channel
+    window.open(`/auth/connect?key=${enc(DASH_KEY)}&client=${enc(name)}`, '_blank');
     setTimeout(async () => {
-      const resp = await fetch(`/api/channels?key=${encodeURIComponent(DASH_KEY)}`);
-      const data = await resp.json();
-      allChannels = data.channels || [];
+      allChannels = (await (await fetch(`/api/channels?key=${enc(DASH_KEY)}`)).json()).channels || [];
       renderAll();
     }, 5000);
   });
 
-  // ── Period buttons ────────────────────────────────────────────────────────
-  document.querySelectorAll('.period-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      activeDays = parseInt(btn.dataset.days);
-      if (selectedChannelId) loadDetail(selectedChannelId);
-    });
-  });
+  // ── Sort videos ───────────────────────────────────────────────────────────
+  qs('vid-sort').addEventListener('change', () => { if (selectedChannelId) loadVideos(selectedChannelId); });
 
-  // ── Render overview + connect panel ──────────────────────────────────────
+  // ── Render overview ───────────────────────────────────────────────────────
   function renderAll() {
-    renderOverview();
-    qs('last-updated').textContent = `Atualizado: ${new Date().toLocaleTimeString('pt-BR')}`;
-  }
-
-  function renderOverview() {
     const grid = qs('overview-grid');
     if (!allChannels.length) {
-      grid.innerHTML = '<p class="no-data">Nenhum canal cadastrado ainda.</p>';
+      grid.innerHTML = '<p class="no-data">Nenhum canal conectado. Use "+ Conectar canal" acima.</p>';
+      qs('last-updated').textContent = '';
       return;
     }
-    grid.innerHTML = allChannels.map(ch => {
-      const subs  = ch.last_subscribers != null ? fmtNum(ch.last_subscribers) : '—';
-      const badge = ch.oauth_connected
-        ? '<span class="badge-connected">●</span>'
-        : '<span class="badge-pending">○</span>';
-      return `
-        <div class="overview-card ${selectedChannelId === ch.channel_id ? 'selected' : ''}"
-             data-id="${ch.channel_id}" onclick="selectChannel('${ch.channel_id}')">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start">
-            <div class="name">${ch.client_name}${badge}</div>
-            <button onclick="event.stopPropagation();removeChannel('${ch.channel_id}','${ch.client_name}')"
-              title="Remover canal"
-              style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:.85rem;padding:0;line-height:1">✕</button>
-          </div>
-          <div class="subs">${subs}</div>
-          <div class="delta neutral" id="delta-${ch.channel_id}">inscritos</div>
-        </div>`;
-    }).join('');
+    grid.innerHTML = allChannels.map(ch => `
+      <div class="ov-card ${selectedChannelId === ch.channel_id ? 'sel' : ''}"
+           data-id="${ch.channel_id}" onclick="selectChannel('${ch.channel_id}')">
+        <div class="cname">
+          <span>${ch.client_name} <span class="${ch.oauth_connected ? 'dot-on' : 'dot-off'}">●</span></span>
+          <button class="rm-btn" type="button" onclick="event.stopPropagation();removeChannel('${ch.channel_id}','${ch.client_name}')">✕</button>
+        </div>
+        <div class="csubs">${ch.last_subscribers != null ? fmtNum(ch.last_subscribers) : '—'}</div>
+        <div class="cdelta neutral" id="delta-${ch.channel_id}">inscritos</div>
+      </div>`).join('');
 
-    // Carregar deltas assincronamente
-    allChannels.forEach(ch => {
-      if (ch.channel_id && !ch.channel_id.startsWith('pending_')) {
-        loadDelta(ch.channel_id);
-      }
-    });
+    allChannels.forEach(ch => { if (ch.channel_id && !ch.channel_id.startsWith('pending_')) loadDelta(ch.channel_id); });
+    qs('last-updated').textContent = `Atualizado: ${new Date().toLocaleTimeString('pt-BR')}`;
   }
 
   async function loadDelta(channelId) {
     try {
-      const resp = await fetch(`/api/stats?key=${encodeURIComponent(DASH_KEY)}&channel_id=${channelId}&days=${activeDays}`);
-      if (!resp.ok) return;
-      const data = await resp.json();
-      const el = document.getElementById(`delta-${channelId}`);
+      const data = await (await fetch(`/api/stats?key=${enc(DASH_KEY)}&channel_id=${channelId}&days=${activeDays}`)).json();
+      const el = qs(`delta-${channelId}`);
       if (!el || !data.delta) return;
       const d = data.delta.subscribers;
       el.textContent = (d >= 0 ? '+' : '') + fmtNum(d) + ` (${activeDays}d)`;
-      el.className = `delta ${d > 0 ? 'up' : d < 0 ? 'down' : 'neutral'}`;
+      el.className = `cdelta ${d > 0 ? 'up' : d < 0 ? 'down' : 'neutral'}`;
     } catch (_) {}
   }
 
-  // ── Detail ────────────────────────────────────────────────────────────────
+  // ── Select channel ────────────────────────────────────────────────────────
   function selectChannel(channelId) {
     selectedChannelId = channelId;
-    document.querySelectorAll('.overview-card').forEach(c => {
-      c.classList.toggle('selected', c.dataset.id === channelId);
-    });
+    document.querySelectorAll('.ov-card').forEach(c => c.classList.toggle('sel', c.dataset.id === channelId));
+    qs('detail').style.display = 'block';
     loadDetail(channelId);
+    // Load videos only if videos tab is active
+    if (qs('tab-videos').classList.contains('active')) loadVideos(channelId);
   }
 
+  // ── Channel charts ────────────────────────────────────────────────────────
   const chartInstances = {};
 
   async function loadDetail(channelId) {
-    const resp = await fetch(`/api/stats?key=${encodeURIComponent(DASH_KEY)}&channel_id=${channelId}&days=${activeDays}`);
+    const resp = await fetch(`/api/stats?key=${enc(DASH_KEY)}&channel_id=${channelId}&days=${activeDays}`);
     if (!resp.ok) return;
     const data = await resp.json();
+    const ch = allChannels.find(c => c.channel_id === channelId);
+    document.querySelectorAll('.tab-btn[data-tab="channel"]').forEach(b => {
+      b.textContent = `📊 ${data.client_name || 'Canal'}`;
+    });
 
-    qs('detail').style.display = 'block';
-    qs('detail-name').textContent = `${data.client_name} (${data.handle || channelId})`;
-
-    const rows  = data.rows || [];
-    const labels = rows.map(r => r.date.slice(5)); // MM-DD
-
+    const rows   = data.rows || [];
+    const labels = rows.map(r => r.date.slice(5));
     const metrics = [
-      { key: 'subscribers',   label: 'Inscritos',      color: '#60a5fa' },
-      { key: 'total_views',   label: 'Views Totais',   color: '#22d3ee' },
-      { key: 'video_count',   label: 'Vídeos',         color: '#a78bfa' },
-      { key: 'comment_count', label: 'Comentários',    color: '#fbbf24' },
-      { key: 'impressions',   label: 'Impressões',     color: '#4ade80' },
-      { key: 'ctr',           label: 'CTR (%)',        color: '#f87171', format: v => v.toFixed(2) + '%' },
+      { key: 'subscribers',   label: 'Inscritos',    color: '#60a5fa' },
+      { key: 'total_views',   label: 'Views Totais', color: '#22d3ee' },
+      { key: 'video_count',   label: 'Vídeos',       color: '#a78bfa' },
+      { key: 'comment_count', label: 'Comentários',  color: '#fbbf24' },
+      { key: 'impressions',   label: 'Impressões',   color: '#4ade80' },
+      { key: 'ctr',           label: 'CTR (%)',      color: '#f87171', fmt: v => v.toFixed(2) + '%' },
     ];
 
     const grid = qs('charts-grid');
     grid.innerHTML = metrics.map(m => `
       <div class="chart-card">
-        <div class="chart-title">${m.label}</div>
-        <div class="chart-value" id="cv-${m.key}">—</div>
+        <div class="cc-title">${m.label}</div>
+        <div class="cc-value" id="cv-${m.key}">—</div>
         <canvas id="chart-${m.key}"></canvas>
       </div>`).join('');
 
     metrics.forEach(m => {
-      const values  = rows.map(r => r[m.key] || 0);
-      const current = values[values.length - 1] ?? null;
-      const fmt     = m.format || fmtNum;
-      const cvEl    = document.getElementById(`cv-${m.key}`);
+      const vals    = rows.map(r => r[m.key] || 0);
+      const current = vals[vals.length - 1] ?? null;
+      const fmt     = m.fmt || fmtNum;
+      const cvEl    = qs(`cv-${m.key}`);
       if (cvEl) cvEl.textContent = current != null ? fmt(current) : '—';
 
-      const ctx = document.getElementById(`chart-${m.key}`)?.getContext('2d');
+      const ctx = qs(`chart-${m.key}`)?.getContext('2d');
       if (!ctx) return;
-
       if (chartInstances[m.key]) chartInstances[m.key].destroy();
-
       chartInstances[m.key] = new Chart(ctx, {
         type: 'line',
-        data: {
-          labels,
-          datasets: [{
-            data: values,
-            borderColor: m.color,
-            backgroundColor: m.color + '18',
-            borderWidth: 2,
-            pointRadius: rows.length <= 14 ? 3 : 0,
-            fill: true,
-            tension: 0.3,
-          }],
-        },
+        data: { labels, datasets: [{ data: vals, borderColor: m.color, backgroundColor: m.color + '18',
+          borderWidth: 2, pointRadius: rows.length <= 14 ? 3 : 0, fill: true, tension: 0.3 }] },
         options: {
           responsive: true,
-          plugins: { legend: { display: false }, tooltip: {
-            callbacks: { label: ctx => fmt(ctx.parsed.y) },
-          }},
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmt(c.parsed.y) } } },
           scales: {
             x: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#1e293b' } },
             y: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#334155' } },
@@ -329,18 +335,56 @@
     });
   }
 
-  // ── Remove channel ───────────────────────────────────────────────────────
+  // ── Videos tab ────────────────────────────────────────────────────────────
+  async function loadVideos(channelId) {
+    const sort = qs('vid-sort').value;
+    const grid = qs('vid-grid');
+    grid.innerHTML = '<p class="no-data">Carregando vídeos...</p>';
+
+    const resp = await fetch(`/api/videos?key=${enc(DASH_KEY)}&channel_id=${channelId}&days=${activeDays}&sort=${sort}`);
+    if (!resp.ok) { grid.innerHTML = '<p class="no-data">Erro ao carregar vídeos.</p>'; return; }
+    const data = await resp.json();
+    const videos = data.videos || [];
+
+    qs('vid-count').textContent = `${videos.length} vídeo(s)`;
+
+    if (!videos.length) {
+      grid.innerHTML = '<p class="no-data">Nenhum vídeo público encontrado. Clique "Histórico completo" para coletar.</p>';
+      return;
+    }
+
+    grid.innerHTML = videos.map(v => {
+      const dur   = fmtDuration(v.duration_sec);
+      const date  = v.published_at ? new Date(v.published_at).toLocaleDateString('pt-BR') : '—';
+      const thumb = v.thumbnail_url || 'https://via.placeholder.com/160x90/1e293b/64748b?text=No+thumb';
+      return `
+        <div class="vid-row">
+          <div class="vid-thumb">
+            <img src="${thumb}" alt="" loading="lazy" />
+            ${dur ? `<span class="vid-duration">${dur}</span>` : ''}
+          </div>
+          <div class="vid-info">
+            <div class="vid-title">${escHtml(v.title || 'Sem título')}</div>
+            <div class="vid-date">${date}</div>
+            <div class="vid-metrics">
+              <div class="vid-metric"><span class="vm-label">Views</span><span class="vm-val blue">${fmtNum(v.views)}</span></div>
+              <div class="vid-metric"><span class="vm-label">Impressões</span><span class="vm-val">${fmtNum(v.impressions)}</span></div>
+              <div class="vid-metric"><span class="vm-label">CTR</span><span class="vm-val yellow">${v.ctr ? v.ctr.toFixed(1) + '%' : '—'}</span></div>
+              <div class="vid-metric"><span class="vm-label">Likes</span><span class="vm-val green">${fmtNum(v.likes)}</span></div>
+              <div class="vid-metric"><span class="vm-label">Comentários</span><span class="vm-val">${fmtNum(v.comments)}</span></div>
+              <div class="vid-metric"><span class="vm-label">Dur. média</span><span class="vm-val cyan">${fmtDuration(v.avg_view_duration_sec)}</span></div>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  // ── Remove channel ────────────────────────────────────────────────────────
   async function removeChannel(channelId, name) {
     if (!confirm(`Remover "${name}"?`)) return;
-    const resp = await fetch(
-      `/api/delete-channel?key=${encodeURIComponent(DASH_KEY)}&channel_id=${encodeURIComponent(channelId)}`,
-      { method: 'DELETE' }
-    );
+    const resp = await fetch(`/api/delete-channel?key=${enc(DASH_KEY)}&channel_id=${enc(channelId)}`, { method: 'DELETE' });
     if (!resp.ok) { alert('Erro ao remover.'); return; }
-    if (selectedChannelId === channelId) {
-      selectedChannelId = null;
-      document.getElementById('detail').style.display = 'none';
-    }
+    if (selectedChannelId === channelId) { selectedChannelId = null; qs('detail').style.display = 'none'; }
     allChannels = allChannels.filter(c => c.channel_id !== channelId);
     renderAll();
   }
@@ -352,6 +396,15 @@
     if (Math.abs(n) >= 1_000)     return (n / 1_000).toFixed(1) + 'K';
     return String(n);
   }
+  function fmtDuration(sec) {
+    if (!sec) return '';
+    const m = Math.floor(sec / 60), s = sec % 60;
+    const h = Math.floor(m / 60);
+    if (h > 0) return `${h}:${String(m % 60).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    return `${m}:${String(s).padStart(2,'0')}`;
+  }
+  function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function enc(s) { return encodeURIComponent(s); }
 </script>
 </body>
 </html>
